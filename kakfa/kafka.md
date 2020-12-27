@@ -10,15 +10,6 @@
 
 
 
-이벤트 스트리밍은 매우 다양한 경우에 사용하고 있다. 예를 들면 아래와 같은 경우에 사용한다.
-
-* 실시간 결제 및 금융 거래를 처리할 때
-* 자동차, 트럭과 같은 운송수단에 대해 실시간으로 추적하고 모니터링 할 때
-* 센서 데이터를 지속적으로 캡쳐하고 분석할 때
-* 고객과의 상호작용에 대해 수집하고 즉시 반응할 때 등등..
-
-
-
 ### Kafka는 이벤트 스트리밍 플랫폼!
 
 Kafka는 세 가지의 주요 기능을 가지고 있다.
@@ -64,11 +55,91 @@ Topic이 분할된다는 것은 topic이 서로 다른 kafka broker에 위치한
 
 
 
+## Kafka는 어디에 사용되는가?
+
+Kafka는 여러 방면에서 사용 중인 인기있는 메시징 시스템이다. 사용 용례는 간단하게 다음과 같다.
+
+* Messaging
+* Website Activity Tracking
+* Metrics
+* Log Aggregation
+* Stream Processing
+* Event Sourcing
+* Commit Log
 
 
 
+## Kafka 실습
+
+Kafka 클러스터는 주키퍼를 통해 관리가 된다. 그래서 주키퍼와 동시에 띄운다. docker-compose 파일을 하나 만들어서 kafka를 띄워보자.
+
+**docker-compose.yml**
+
+```yaml
+version: '2'
+
+networks:
+  test:
+
+services:
+  zookeeper:
+    image: wurstmeister/zookeeper:3.4.6
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    networks:
+      - test
+
+  kafka:
+    image: wurstmeister/kafka:2.12-2.0.1
+    container_name: kafka
+    environment:
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ADVERTISED_HOST_NAME: 127.0.0.1
+      KAFKA_ADVERTISED_PORT: 9092
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_CREATE_TOPICS: "CHECK-PRODUCT:1:1,APPLY-PAYMENT:1:1,CHECK-PRODUCT-RESULT:1:1,APPLY-PAYMENT-RESULT:1:1,CHECK-PRODUCT-ROLLBACK:1:1,APPLY-PAYMENT_ROLLBACK:1:1"
+      # Topic명:Partition개수:Replica개수
+    volumes:
+      - ./volume:/var/run/docker.sock
+    ports:
+      - "9092:9092"
+    depends_on:
+      - zookeeper
+    networks:
+      - test
+```
+
+실행 방법은 간단히 아래 명령어를 입력하면 된다.
+
+```shell
+$ docker-compose up
+```
 
 
+
+이제 Kafka에 접속해보자. 일단 kafka 컨테이너가 떠있는지 보자. docker ps 명령어를 입력하면 실행 중인 컨테이너 리스트가 출력된다.
+
+```shell
+$ docker ps
+
+CONTAINER ID        IMAGE                           COMMAND                  CREATED             STATUS              PORTS                                                NAMES
+119037ef91ac        wurstmeister/kafka:2.12-2.0.1   "start-kafka.sh"         3 minutes ago       Up 3 minutes        0.0.0.0:9092->9092/tcp                               kafka
+aebcc5499750        wurstmeister/zookeeper:3.4.6    "/bin/sh -c '/usr/sb…"   3 minutes ago       Up 3 minutes        22/tcp, 2888/tcp, 3888/tcp, 0.0.0.0:2181->2181/tcp   zookeeper
+```
+
+
+
+kafka 컨테이너 접속은 다음 명령어로 가능하다.
+
+```shell
+$ docker exec -it kafka /bin/bash
+```
+
+
+
+### Topic 생성
 
 
 
