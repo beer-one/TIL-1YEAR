@@ -132,7 +132,8 @@ interface State {
 
 그리고 이 디자인 패턴에 대한 적당한 예시를 생각하다가 **개발자(직장인)에 대한 상태** 를 정의해보았다. 아래 그림은 개발자에 대한 상태를 Final State Machine으로 나타낸 그림이다.
 
-![IMG_6A6B604BF556-1](/Users/yunseowon/Downloads/IMG_6A6B604BF556-1.jpeg)
+![IMG_6A6B604BF556-1](https://user-images.githubusercontent.com/35602698/103562294-2dae7600-4efe-11eb-951e-c15dd86ce325.jpeg)
+
 
 직장인은 평일에 출근하고 휴일에 쉰다. 일단 개발의 편의성을 위해 InHome 상태를 시작 상태로 두고, 휴일(Holiday) 상태가 되면 종료가 되도록 Holiday를 Final State로 두었다. 
 
