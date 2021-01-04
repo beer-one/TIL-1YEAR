@@ -15,7 +15,7 @@ State 패턴으로 해결할 수 있는 문제는 아래와 같다.
 
 ## 이 패턴을 왜 생각했냐?
 
-![image-20210105003944002](/Users/yunseowon/Library/Application Support/typora-user-images/image-20210105003944002.png)
+![스크린샷 2021-01-05 오전 12 39 36](https://user-images.githubusercontent.com/35602698/103554291-00f46180-4ef2-11eb-9457-0efae99578e2.png)
 
 위와 같이 상태와 상태에 대한 행동이 주어지고, 상태가 변할 때 그 상태에 대한 행동을 실행하도록 하는 구조를 구현하는 방법 중 하나는 상태별 행동을 직접 내부 상태에 의존하는 클래스에 정의하는 것이다. 상태와 상태별 행동을 클래스 내부에 정의할 때는 조건문이나 switch문 등을 사용하면 된다. 각 조건 브랜치는 상태에 따른 행동들을 구현한다. 
 
@@ -27,7 +27,7 @@ State 패턴으로 해결할 수 있는 문제는 아래와 같다.
 
 위와 같은 문제를 해결하기 위해 State 디자인 패턴이 탄생하게 된다. 
 
-![image-20210105001901164](/Users/yunseowon/Library/Application Support/typora-user-images/image-20210105001901164.png)
+![스크린샷 2021-01-05 오전 12 18 54](https://user-images.githubusercontent.com/35602698/103554326-136e9b00-4ef2-11eb-80f7-cb4292feaa3e.png)
 
 State 디자인 패턴은 상태별 행동을 상태별로 State 객체로 분리시킨 후 캡슐화 한다. 
 
@@ -52,7 +52,7 @@ State 디자인 패턴은 상태별 행동을 상태별로 State 객체로 분�
 
 ### 클래스 구조
 
-![image-20210105001901164](/Users/yunseowon/Library/Application Support/typora-user-images/image-20210105001901164.png)
+![스크린샷 2021-01-05 오전 12 18 54](https://user-images.githubusercontent.com/35602698/103554326-136e9b00-4ef2-11eb-80f7-cb4292feaa3e.png)
 
 * Context (상태를 가지는 클래스)
   * 상태 별 행동을 실행하기 위해 State 인터페이스를 참조한다. 그리고 Context 클래스는 상태가 어떻게 구현되어 있는지 모른다. (몰라도 된다. / 독립적이다.)
