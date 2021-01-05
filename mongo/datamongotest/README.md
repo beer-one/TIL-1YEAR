@@ -57,6 +57,7 @@ class MongoDbSpringIntegrationTest(
 
 회사에서 테스트용으로 작성했는데 막상 dev환경으로 배포를 했을 때 회사 젠킨스에서 에러가 발생했다.
 
-![스크린샷 2021-01-05 오후 6.00.24](/Users/nhn/Desktop/스크린샷 2021-01-05 오후 6.00.24.png)
+![스크린샷 2021-01-05 오후 6 00 24](https://user-images.githubusercontent.com/35602698/103628105-dd78f780-4f81-11eb-9d85-e43a503c3f8e.png)
+
 
 에러로그를 간략히 보면 embedded DB를 사용할 때 embedded DB가 로컬에 깔려있지 않으면 다운로드를 받은 후 테스트가 진행되는 것 처럼 보이는데 다운로드에서 SSL 에러가 났다. 이럴 땐 어떻게 해야하지,,?
