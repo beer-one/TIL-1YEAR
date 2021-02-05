@@ -70,3 +70,5 @@ Kafka는 GZIP, Snappy, LZ4, ZStandard 압축 프로토콜을 지원한다.
 
 
 
+
+
