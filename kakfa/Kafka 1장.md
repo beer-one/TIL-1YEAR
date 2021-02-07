@@ -1,99 +1,168 @@
-# Kafka 훑어보기
-
-Kafka에 대해 훑어보자.
+# 카프카 설치
 
 
 
-## 메시지 발행/구독 시스템
+## 주키퍼 설치 및 실행
 
-메시지 발행/구독 시스템에서는 발행자가 직접 구독자에게 메시지를 보내지 않는다. 대신 발행자가 메시지를 메시지 발행/구독 시스템에 전달하면 구독자가 특정 메시지를 구독할 수 있는데, 발행된 메시지를 저장하고 중계해주는 역할을 broker가 수행한다.
+Kafka는 컨슈머 클라이언트와 카프카 클러스터에 관한 메타데이터를 저장하기 위해 주키퍼를 사용한다. 주키퍼 설치는 다음 명령어로 설치할 수 있다.
 
+```shell
+$ wget http://archive.apache.org/dist/zookeeper/zookeeper-3.4.12/zookeeper-3.4.12.tar.gz
+$ tar -zxf zookeeper-3.4.12.tar.gz
+$ sudo mv zookeeper-3.4.12 /usr/local/zookeeper
+$ sudo mkdir -p /var/lib/zookeeper
+$ cp /usr/local/zookeeper/conf/zoo_sample.cfg /usr/local/zookeeper/conf/zoo.cfg
+$ export JAVA_HOME=/usr/lib/jvm/java-1.11.0-openjdk-amd64
+```
 
+주키퍼 설치가 완료되었으면 실행한다.
 
+```shell
+$ /usr/local/zookeeper/bin/zkServer.sh start 
 
+ZooKeeper JMX enabled by default
+Using config: /usr/local/zookeeper/bin/../conf/zoo.cfg
+Starting zookeeper ... STARTED
+```
 
-## Kafka?
+주키퍼 실행 확인은 telnet으로 할 수 있다.(주키퍼 기본 포트는 2181) telnet 명령어 입력 후 srvr 명령을 실행시키자.
 
-카프카는 하나의 메시지 발행/구독 시스템이며, 분산 커밋 로그 또는 분산 스트리밍 플랫폼이라고도 한다.
-
-
-
-### 메시지, 배치
-
-Kafka에서는 데이터의 기본 단위를 메시지라고 한다. (DB의 row나 레코드와 비슷한 맥락이다.) DB와는 다르게 메시지는 바이트 형태의 데이터로 저장되므로 특정 형식이나 의미를 가지지는 않는다. 그리고 메시지는 key를 가질 수 있다. 
-
-메시지 데이터는 토픽으로 분류된 파티션에 수록되는데, 이 때 데이터를 수록할 파티션을 결정하기 위해 해시값으로 키를 생성한다. 같은 키 값을 가지는 메시지는 같은 파티션에 속한다.
-
-Kafka는 효율성을 위해 여러 개의 메시지를 모아 배치 단위로 파티션에 저장시키므로 네트워크로부터 매번 메시지를 받아서 처리하는 데 부담을 덜 수 있다. 이러한 경우 대기시간(latency)와 처리량(throughput) 간의 트레이드오프가 생길 수 있다.
-
-
-
-### 스키마
-
-Kafka는 메시지를 바이트 형식으로 저장하지만, 메시지의 구조를 나타내는 스키마를 사용할 수도 있다. 그리고 각 애플리케이션의 필요에 따라 메시지 스키마로 여러가지 표준 형식을 사용할 수 있다. (Json, XML 등) 하지만 데이터 타입에 대한 지원이 부족하고 스키마 버전 간 호환성이 떨어지는 문제가 있다. (Avro - 데이터 직렬화 형식 제공, 스키마를 유지 관리, 강력한 데이터 타입 지원.. 나중에 시간되면 알아보던동 하자.)
-
-
-
-### 토픽과 파티션
-
-Kafka의 메시지는 토픽으로 분류된다. 토픽은 DB의 테이블이나 파일 시스템의 폴더와 비슷하다. 하나의 토픽은 여러 개의 파티션으로 구성될 수 있다. 메시지는 파티션에 추가되는 형태로만 수록되며 맨 앞부터 제일 끝까지의 순서로 읽힌다. (linear) 그리고 메시지 처리 순서는 파티션별로 유지 관리된다. 그리고 각 파티션은 서로 다른 서버에 분산될 수 있다. (수평적으로 확장될 수 있기 때문에 분산되면 성능이 우수해진다.)
-
-!![image-20210206002216106](/Users/yunseowon/Library/Application Support/typora-user-images/image-20210206002216106.png)
-
-스트림은 데이터를 쓰는 프로듀서로부터 데이터를 읽는 컨슈머로 이동되는 연속적인 데이터를 나타내며, 대부분 스트림은 파티션 수와는 상관 없이 하나의 토픽 데이터로 간주된다.
-
- 
-
-### 프로듀서, 컨슈머
-
-Kafka 클라이언트의 종류로, 메시지를 만드는 프로듀서, 메시지를 소비하는 컨슈머로 구성되어있다.
-
-프로듀서는 메시지를 생성하는 클라이언트이다. 메시지는 특정 토픽으로 생성되고 프로듀서는 일반적으로는 토픽 메시지가 어떤 파티션에 수록하는지 관여하지 않고 바로 메시지 브로커로 보낸다. 특정 파티션에 메시지를 직접 쓸 수도 있는데, 이 때는 메시지 키와 파티셔너를 사용한다. 파티셔너는 키의 해시값을 생성하고 그것을 특정 파티션에 대응시킴으로써 지정된 키를 갖는 메시지가 항상 같은 파티션에 수록되게 해준다. 
-
-컨슈머는 메시지를 읽는 클라이언트이다. 하나 이상의 토픽을 구독하여 메시지가 생성된 순서대로 읽으며, 메시지의 오프셋을 유지하여 읽는 메시지의 위치를 알 수 있다. 오프셋은 지속적으로 증가하는 정수값이며 메시지가 생성될 때 kafka가 추가해준다. 메시지는 고유한 오프셋을 가진다. 그리고 주키퍼나 카프카에서는 각 파티션에서 마지막에 읽은 메시지의 오프셋을 저장하고 있기 때문에 컨슈머가 메시지 읽기를 중단하다가 다시 시작하더라도 언제든 그 다음 메시지를 읽을 수 있다.
-
-컨슈머는 컨슈머 그룹의 멤버로 동작한다. 컨슈머 그룹은 하나 이상의 컨슈머로 구성되며 한 토픽을 소비하기 위해 같은 그룹의 여러 컨슈머가 함께 동작한다. 그리고 한 토픽의 파티션은 하나의 컨슈머만 소비할 수 있다. (파티션 - 컨슈머는 N:1) 각 컨슈머가 특정 파티션에 대응되는 것을 파티션 소유권이라고 한다. 
-
-![image-20210206002232163](/Users/yunseowon/Library/Application Support/typora-user-images/image-20210206002232163.png)
-
-컨슈머 그룹을 사용하면 컨슈머를 수평적으로 확장할 수 있다. 그리고 한 컨슈머가 해당 파티션 메시지를 읽는 데 실패하더라도 같은 그룹에 다른 컨슈머가 소유권을 재조정받은 후 읽을 수 있기 때문에 안정성도 증가한다.
+```shell
+$ telnet localhost 2181
+Trying 127.0.0.1...
+Connected to localhost.
+Escape character is '^]'.
+srvr # 입력!
+Zookeeper version: 3.4.12-e5259e437540f349646870ea94dc2658c4e44b3b, built on 03/27/2018 03:55 GMT
+Latency min/avg/max: 0/0/0
+Received: 2
+Sent: 1
+Connections: 1
+Outstanding: 0
+Zxid: 0x0
+Mode: standalone
+Node count: 4
+Connection closed by foreign host.
+```
 
 
 
-### 브로커, 클러스터
+### 주키퍼 앙상블
 
-하나의 카프카 서버를 브로커라고 한다. 브로커는 프로듀서로부터 메시지를 수신하고 오프셋을 지정한 후 해당 메시지를 디스크에 저장한다. 그리고 컨슈머의 파티션 읽기 요청에 응답하고 디스크에 수록된 메시지를 전송한다. 보통 하나의 브로커는 초당 수천 개의 토픽과 수백만 개의 메시지를 처리할 수 있다.
+주키퍼의 클러스터를 앙상블이라고 한다. 하나의 앙상블은 여러 개의 서버를 멤버로 가질 수 있다. 이 때, 하나의 서버에만 서비스가 집중되지 않게 분산하여 동시에 처리하고 한 서버에서 처리한 결과를 다른 서버와 동기화시켜 데이터의 안정성을 보장한다. 또, 클라이언트와 연결되어 현재 동작 중인 서버에 문제가 생겨 서비스를 제공할 수 없을 때는 대기 중인 서버 중에서 자동 선정하여 새로 선택된 서버가 해당 서비스를 이어받아 처리함으로써 서비스가 중단되지 않게 한다. 
 
-카프카의 브로커는 클러스터의 일부로 동작하도록 설계되어있다. 여러 개의 브로커가 하나의 클러스터로 동작하고, 브로커 중 하나는 자동으로 선정되는 클러스터 컨트롤러의 기능을 수행한다. 컨트롤러는 같은 클러스터의 각 브로커에게 담당 파티션을 할당하고 브로커들이 정상적으로 동작하는지 모니터링하는 역할을 맡는다. 각 파티션은 클러스터의 한 브로커가 소유하며 그 브로커를 파티션 리더라고 한다. 그리고 같은 파티션이 여러 브로커에 지정될 수도 있는데 이 때는 파티션이 복제된다. 
+요청에 대한 응답을 항상 빠르고 안정적으로 하기 위해 앙상블은 홀수 개의 서버를 멤버로 갖는다. 앙상블의 서버 중 과반수가 작동 가능하다면 언제든 요청 처리가 가능하기 때문이다. (앙상블은 노드가 다섯개가 적당하다고 한다. 이유는 앙상블의 구성 변경 시에는 한 번에 하나의 서버 노드를 중단했다가 다시 로딩해야 하는데 노드가 3개이면 구성 변경 노드를 제외하고 하나가 죽어버리면 작동이 불가능하기 때문이다. 그리고 서버가 너무 많으면 오히려 성능 저하가 발생할 수 있다고 한다.)
 
-![image-20210206003745934](/Users/yunseowon/Library/Application Support/typora-user-images/image-20210206003745934.png)
+주키퍼 서버를 앙상블로 구성하려면 각 서버가 공통된 구성 파일을 가져야 한다. 또, 각 서버는 자신의 ID 번호를 지정한 myid파일을 데이터 디렉터리에 가지고 있어야 한다.
+
+**zoo.cfg**
+
+```
+tickTime=2000
+dataDir=/var/lib/zookeeper
+clientPort=2181
+initLimit=20
+syncLimit=5
+server.1=zoo1.example.com:2888:3888
+server.2=zoo2.example.com:2888:3888
+server.3=zoo3.example.com:2888:3888
+```
+
+* clientPort: 주키퍼에 접속하는 클라이언트는 clientPort에 지정된 포트번호로 앙상블과 연결
+* initLimit: 팔로어가 리더에 접속할 수 있는 시간[=tickTime(ms)*initLimit], 위의 설정 기준 2000ms * 20 = 40초
+* syncLimit: 리더가 될 수 있는 팔로어의 최대 개수
+* server.X=hostname:peerPort:leaderPort
+  * X: 서버의 ID 번호 (음이아닌 정수 값. 순차적일 필요는 없다.)
+  * hostname: 호스트 이름 / ip 주소
+  * peerPort: 앙상블의 서버들이 상호 통신하는 데 사용하는 포트번호
+  * leaderPort: 리더를 선출하는 데 사용하는 포트번호
+  * 각 서버는 dataDir에 지정된 디렉터리에 myid라는 이름의 파일을 가지고 있어야 한다. 
 
 
 
-이러한 경우, 파티션의 메시지는 중복으로 저장되지만 하나의 브로커에 장애가 발생했을 때 다른 브로커가 소유권을 인계받아 그 파티션을 처리할 수 있다. (안정성 증가) 각 파티션을 사용하는 모든 컨슈머와 프로듀서는 파티션 리더에 연결해야 한다. 
-
-그리고 카프카의 핵심 기능 중 하나는 보존 기능이다. 이는 메시지를 일정 기간, 지정된 토픽 크기만큼 메시지를 보존할 수 있다. 한도값에 도달하면 최소한의 데이터만 유지되도록 만료 메시지가 삭제된다. 
 
 
+## 카프카 브로커 설치 및 실행
 
-## 카프카를 사용하는 이유
+Kafka broker는 다음 명령어로 설치할 수 있다.
 
-* 다중 프로듀서
-  * 여러 클라이언트가 많은 토픽을 사용하거나 같은 토픽을 같이 사용해도 카프카는 무리 없이 많은 프로듀서의 메시지를 처리할 수 있다. 
+```shell
+$ wget http://archive.apache.org/dist/kafka/2.7.0/kafka_2.13-2.7.0.tgz
+$ tar -zxf kafka_2.13-2.7.0.tgz
+$ sudo mv kafka_2.13-2.7.0 /usr/local/kafka
+$ mkdir /tmp/kafka-logs
+```
 
-* 다중 컨슈머
-  * 카프카는 많은 컨슈머가 상호 간섮 없이 어떤 메시지 스트림도 읽을 수 있게 지원한다. 
+kafka broker 설치가 완료되었으면 실행해보자.
 
-* 디스크 기반의 보존
-  * 카프카는 메시지를 보존할 수도 있기 때문에 컨슈머 애플리케이션이 항상 실시간으로 실행되지 않아도 된다. 
-  *  토픽별로 보존 옵션을 달리 설정할 수도 있다. 
-  * 느리거나 접속 폭주로 인해 컨슈머가 메시지를 읽는 데 실패하더라도 데이터가 유실될 위험이 없다. 
-  * 메시지가 보존되기 때문에 메시지 백업이 필요 없고 컨슈머의 유지보수도 자유롭게 수행할 수 있다. 
-  * 컨슈머가 중단되어 다시 실행하면 중단 시점의 메시지부터 처리할 수 있다.
+```shell
+$ /usr/local/kafka/bin/kafka-server-start.sh -daemon /usr/local/kafka/config/server.properties
+```
 
-* 확장성 
-  * 수평적 확장이 자유롭다. (프로듀서, 컨슈머, 브로커 모두 다..)
-  * 확장 작업은 시스템 전체의 사용에 영향이 없고 클러스터가 온라인 상태일 때도 수행이 가능하다. 
+실행했으면 토픽을 생성하고 확인해보자.
+
+
+
+**토픽 생성**
+
+```shell
+$ /usr/local/kafka/bin/kafka-topics.sh --create \
+--zookeeper localhost:2181 \
+--replication-factor 1 --partitions 1 --topic test
+
+Created topic test.
+```
+
+**토픽 확인**
+
+```shell
+$ /usr/local/kafka/bin/kafka-topics.sh \
+--zookeeper localhost:2181 \
+--describe --topic test
+
+Topic: test	PartitionCount: 1	ReplicationFactor: 1	Configs: 
+	Topic: test	Partition: 0	Leader: 0	Replicas: 0	Isr: 0
+```
+
+**토픽에 메시지 쓰기**
+
+```shell
+$ /usr/local/kafka/bin/kafka-console-producer.sh \
+--broker-list localhost:9092 \
+--topic test
+
+> Test Message 1
+> Test Message 2
+^D # (Ctrl+D)
+```
+
+**토픽 메시지 읽기**
+
+```shell
+$ /usr/local/kafka/bin/kafka-console-consumer.sh \
+--bootstrap-server localhost:9092 \
+--topic test --from-beginning
+Test Message 1
+Test Message 2
+^C # (Ctrl+C)
+Processed a total of 2 messages
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
