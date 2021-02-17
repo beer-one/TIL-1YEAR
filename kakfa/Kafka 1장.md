@@ -108,9 +108,9 @@ $ /usr/local/kafka/bin/kafka-server-start.sh -daemon /usr/local/kafka/config/ser
 ```shell
 $ /usr/local/kafka/bin/kafka-topics.sh --create \
 --zookeeper localhost:2181 \
---replication-factor 1 --partitions 1 --topic test
+--replication-factor 1 --partitions 1 --topic beer
 
-Created topic test.
+Created topic beer.
 ```
 
 **토픽 확인**
@@ -118,10 +118,10 @@ Created topic test.
 ```shell
 $ /usr/local/kafka/bin/kafka-topics.sh \
 --zookeeper localhost:2181 \
---describe --topic test
+--describe --topic beer
 
-Topic: test	PartitionCount: 1	ReplicationFactor: 1	Configs: 
-	Topic: test	Partition: 0	Leader: 0	Replicas: 0	Isr: 0
+Topic: beer	PartitionCount: 1	ReplicationFactor: 1	Configs: 
+	Topic: beer	Partition: 0	Leader: 0	Replicas: 0	Isr: 0
 ```
 
 **토픽에 메시지 쓰기**
@@ -129,7 +129,7 @@ Topic: test	PartitionCount: 1	ReplicationFactor: 1	Configs:
 ```shell
 $ /usr/local/kafka/bin/kafka-console-producer.sh \
 --broker-list localhost:9092 \
---topic test
+--topic beer
 
 > Test Message 1
 > Test Message 2
@@ -141,7 +141,7 @@ $ /usr/local/kafka/bin/kafka-console-producer.sh \
 ```shell
 $ /usr/local/kafka/bin/kafka-console-consumer.sh \
 --bootstrap-server localhost:9092 \
---topic test --from-beginning
+--topic beer --from-beginning
 Test Message 1
 Test Message 2
 ^C # (Ctrl+C)
