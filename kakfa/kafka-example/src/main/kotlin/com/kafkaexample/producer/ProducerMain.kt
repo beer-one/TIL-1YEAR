@@ -10,7 +10,7 @@ fun main() {
 }
 
 fun fireAndForget() {
-    val record = ProducerRecord("beer", "Heineken", "Nederland")
+    val record = ProducerRecord("beer", "Asahi", "Japan")
 
     try {
         MyKafkaProducer.send(record)
@@ -38,7 +38,7 @@ fun synchronousSend() {
 }
 
 fun asynchronousSend() {
-    val record = ProducerRecord("beer", "Terra", "Korea")
+    val record = ProducerRecord("beer", "Asahij", "Japan")
 
     try {
         val metadata = MyKafkaProducer.send(record) { recordMetadata, exception ->
