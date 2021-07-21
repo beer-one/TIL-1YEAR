@@ -103,3 +103,32 @@ expectation "expectNext(0)" failed (expected: onNext(0); actual: onError(reactor
 
 
 
+
+
+## Customization
+
+BlockHound의 사용법은 총 3가지이다.
+
+1. BlockHound.install() :  ServiceLoader를 사용하여 모든 `reactor.blockhound.integration.BlockHoundIntegration` 에 있는 것들을 로드한다.
+
+2. BlockHound.install(BlockHoundIntegration ... integration): 1 과 같지만, 사용자 정의의 integration을 추가로 로드할 수 있다. (직접 구현체를 작성해서 넣는 것 가능)
+3. BlockHound.builder().install() : 어떠한 integration을 로드하지 않고 builder를 만들어서 생성. 보통 `BlockHound.builder().with(...).with(...).install()` 과 같은 방식을 사용.
+
+
+
+### 특정 메서드를 blocking 메서드 취급하기
+
+builder 패턴으로 BlockHound를 install 할 때, 어떤 특정 메서드를 blocking 메서드로 취급하도록 설정할 수 있다.
+
+- `Builder#markAsBlocking(Class clazz, String methodName, String signature)`
+- `Builder#markAsBlocking(String className, String methodName, String signature)`
+
+
+
+### 어떤 메서드 안에있는 blocking 코드 허용하기(하지 않기)
+
+어떤 메서드 안에서는 blocking 코드를 허용하게(허용하지 않게) 할 수 있다.
+
+- `Builder#allowBlockingCallsInside(String className, String methodName)`
+- `Builder#disallowBlockingCallsInside(String className, String methodName)`
+

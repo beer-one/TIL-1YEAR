@@ -1,4 +1,4 @@
-package com.recipt.member.infrastructure.configuration
+package com.til.infrastructure
 
 import dev.miku.r2dbc.mysql.MySqlConnectionConfiguration
 import dev.miku.r2dbc.mysql.MySqlConnectionFactory
@@ -22,7 +22,7 @@ class R2dbcConfig(
             MySqlConnectionConfiguration.builder()
                 .host("192.168.0.4")
                 .port(3306)
-                .database("reciptMember")
+                .database("testdb")
                 .username(properties.username)
                 .password(properties.password)
                 .build()

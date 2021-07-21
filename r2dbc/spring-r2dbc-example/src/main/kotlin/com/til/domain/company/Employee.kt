@@ -4,11 +4,13 @@ import javax.persistence.Entity
 import javax.persistence.Id
 import javax.persistence.Table
 
-@Table(name = "COMPANY")
+@Table(name = "EMPLOYEE")
 @Entity
-data class Company(
+data class Employee(
     @Id
-    val companyNo: Int,
+    val employeeNo: Int,
 
-    val name: String
+    val name: String,
+
+    val companyNo: Int
 )

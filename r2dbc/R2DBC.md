@@ -36,6 +36,20 @@ dependencies {
 
 
 
+### R2DBC support
+
+R2DBC의 특징은 다음과 같다.
+
+* R2DBC 드라이버 인스턴스에 대한 java 기반의 @Configuration 클래스를 통해 Spring configuration을 지원한다.
+* R2dbcEntityTemplate은 Table의 row와 POJO간의 통합된 객체 매핑을 사용하여 일반적인 R2DBC 작업을 수행할 때 생산성을 높이는 entity-binding 작업을 위한 중앙 클래스이다.
+* Spring의 Conversion Service와 통합괸 풍부한 기능의 객체 매핑을 담당
+* 다른 메타데이터 형식을 지원하도록 확장할 수 있는 Annotation 기반의 매핑 메타데이터
+* custom query method를 지원하는 것을 포함하여 Repository interface의 자동 구현체 생성
+
+이외에 다양한 기능을 사용하고 싶다면 `R2dbcEntityTemplate` 등을 사용하자. R2dbcEntityTemplate는 CRUD 연산과 같은 접근 기능을 가지고 있다.
+
+
+
 
 
 ### Repository
@@ -50,13 +64,17 @@ interface MemberRepository: R2dbcRepository<Member, Long> {
 
 
 
-R2DBC Repository를 설정하기 위해서는 @EnableR2dbcRepisotories 애노테이션을 붙여야 한다.
+R2DBC Repository를 설정하기 위해서는 `@EnableR2dbcRepositories` 애노테이션을 붙여야 한다. 애노테이션에 base package가 없다면 인프라스트럭쳐는 @Configuration 어노테이션 설정이 된 클래스를 스캔한다. [설정 예시](https://docs.spring.io/spring-data/r2dbc/docs/1.2.6/reference/html/#r2dbc.multiple-databases)
 
 ```kotlin
 @Configuration
-class R2dbcConfig(private val properties: R2dbcProperties) : AbstractR2dbcConfiguration() {
-    override fun connectionFactory(): ConnectionFactory {
-        
+@EnableR2dbcRepositories
+class R2dbcConfig(
+    private val properties: R2dbcProperties
+) {
+
+    @Bean
+    fun connectionFactory(): ConnectionFactory {
         return MySqlConnectionFactory.from(
             MySqlConnectionConfiguration.builder()
                 .host("192.168.0.4")
@@ -66,6 +84,13 @@ class R2dbcConfig(private val properties: R2dbcProperties) : AbstractR2dbcConfig
                 .password(properties.password)
                 .build()
         )
+    }
+
+    @Bean
+    fun r2dbcEntityTemplate(): R2dbcEntityTemplate {
+        val databaseClient = DatabaseClient.create(connectionFactory())
+
+        return R2dbcEntityTemplate(databaseClient)
     }
 }
 ```
@@ -209,4 +234,163 @@ val delete: Mono<Integer> = template.delete(Person::class)
         .matching(query(where("firstname").is("John")))   
         .all()                                       
 ```
+
+
+
+### Join
+
+아무리 찾아도 안나온다.. 일단 이런 방식으로..
+
+```kotlin
+@Repository
+class MemberRepositoryImpl(
+    private val client: DatabaseClient
+) : MemberAggregateRepository, AbstractReciptRepository(Member::class) {
+
+    companion object {
+        private const val MEMBER = "RECIPT_MEMBER"
+        private const val FOLLOWER_MAPPING = "FOLLOWER_MAPPING"
+    }
+
+    override fun findFollowerByNo(no: Int): Flux<Member> {
+        return client.execute("""
+            |SELECT * FROM $MEMBER 
+            |LEFT JOIN $FOLLOWER_MAPPING
+            |ON $FOLLOWER_MAPPING.follower_no = $MEMBER.member_no
+            |WHERE $FOLLOWER_MAPPING.member_no = $no
+        """.trimMargin())
+            .`as`(Member::class.java)
+            .fetch()
+            .all()
+    }
+
+    override fun existFollowing(from: Int, to: Int): Mono<Boolean> {
+        return client.execute("""
+            |SELECT count(*) FROM $FOLLOWER_MAPPING
+            |WHERE $FOLLOWER_MAPPING.member_no = $from
+            |AND $FOLLOWER_MAPPING.follower_no = $to
+            |LIMIT 1
+            """.trimMargin())
+            .`as`(Int::class.java)
+            .fetch()
+            .one()
+            .map { it > 0 }
+
+    }
+}
+```
+
+
+
+### Projections
+
+Spring Data query 메서드는 레포지토리에서 관리하는 하나 이상의 애그리거트 루트 인스턴스를 반환한다. 하지만 때로는 애그리거트 루트의 일부 컬럼들만 projection해야 할 때도 있다. (성능적 측면에서?) Spring Data는 projection할 리턴타입을 모델링해서 내려주는 기능을 제공하고 있다. 
+
+
+
+#### Interface 기반의 projection
+
+```kotlin
+class Person(
+    @Id
+    val id: UUID
+  
+    val firstname: String
+    val lastname: String
+    val address: Address
+) {
+    class Address (
+        val zipCode: String
+        val city: String
+        val street: String
+    )
+}
+```
+
+
+
+query projection을 정의하는 가장 간단한 방법은 projection을 정의하는 인터페이스에 접근자 메서드를 정의하는 방식이다.
+
+```kotlin
+interface NamesOnly {
+    val firstname: String
+    val lastname: String
+}
+
+interface PersonSummary {
+    val firstname: String
+    val lastname: String
+    val addressSummary: AddressSummary
+  
+    interface AddressSummary {
+        val city: String
+    }
+}
+```
+
+```kotlin
+interface PersonRepository: Repository<Person, UUID>() {
+    fun findByLastname(lastname: String): Flux<NamesOnly>
+}
+```
+
+
+
+#### Closed Projections
+
+엔티티 컬럼과 같은 이름을 사용하는 인터페이스를 사용하는 방식, 위의 예제와 같다.
+
+
+
+#### Open Projections
+
+@Value 애노테이션을 이용하여 컬럼끼리 연산을 한 결과를 내려줄 수 있다.
+
+```kotlin
+interface NamesOnly {
+    @Value("#{target.firstname + ' ' + target.lastname}")
+    val fullname: String
+}
+```
+
+또는 backingField를 이용하여 정의할 수도 있다.
+
+```kotlin
+interface NamesOnly {
+    val firstname: String
+    val lastname: String
+  
+    val fullName: String
+       get() = "$firstname $lastname"
+}
+```
+
+
+
+#### Class 기반 projections (DTO)
+
+DTO 객체를 정의해서 projection하는 방법도 있다. 이 방법은 인터페이스 기반 방식과 유사하다. 
+
+```kotlin
+data class NamesOnly (
+    val firstname: String
+    val lastname: String
+)
+```
+
+* equals(), hashCode() 를 구현하라고 나와있는데 kotlin은 data class로 퉁치면 된다
+
+
+
+#### Dynamic Projection
+
+언어에서 제공하는 Generic을 이용하는 Dynamic Projection이 제공된다.
+
+```kotlin
+interface PersonRepository: Repository<Person, UUID>() {
+    fun <T> findByLastname(lastname: String, type: Class<T>): Flux<T>
+}
+```
+
+ 
 
