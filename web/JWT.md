@@ -105,11 +105,13 @@ Authorization: Bearer <token>
 
 
 
-
-
-
-
 ## JWT는 어디에 저장하는게 좋나?
+
+사실 이에 대한 고민을 많이하고 관련 자료를 많이 찾아봤는데 완전한 답은 없는 듯 하다. 일단 웹 애플리케이션에서의 저장소는 대표적으로 Local Storage, Cookie, Session Storage
+
+
+
+
 
 
 
