@@ -80,3 +80,13 @@ HttpOnly 쿠키는 Document.cookie API로 접근이 불가능하며 서버에 �
 
 `Set-Cookie: beer1_token=abcd1234; Expires=Wed, 21 Jul 2021 12:11:10 GMT; Secure; HttpOnly`
 
+
+
+## 심화
+
+* **sameSite**
+  * 이거에 대한 [Chrome의 입장](https://help.salesforce.com/s/articleView?id=000351874&type=1)
+    * https://seob.dev/posts/%EB%B8%8C%EB%9D%BC%EC%9A%B0%EC%A0%80-%EC%BF%A0%ED%82%A4%EC%99%80-SameSite-%EC%86%8D%EC%84%B1/
+    * https://blog.chromium.org/2020/01/building-more-private-web-path-towards.html
+* secure
+* httpOnly
