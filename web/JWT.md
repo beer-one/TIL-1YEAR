@@ -27,7 +27,7 @@ JWT의 구조는 3가지 부분으로 이루어져있다.
 
 3가지 부분으로 나뉘어져있고, JWT를 생성하면 다음과 같이 생긴다.
 
-![image-20210813182302685](/Users/yunseowon/Library/Application Support/typora-user-images/image-20210813182302685.png)
+<img width="629" alt="스크린샷 2021-08-13 오후 6 22 59" src="https://user-images.githubusercontent.com/35602698/129751763-c4c0baef-1135-4790-b934-f8a317595637.png">
 
 * 출처 - https://jwt.io/introduction
 
@@ -99,7 +99,7 @@ Authorization: Bearer <token>
 
 
 
-이러한 JWT 방식은 어떻게 보면 무상태(stateless)의 인가 방식 메커니즘이다. 서버의 보호된 route는 Authorization header에 있는 JWT가 유효한지 확인할 것이다. 그리고 JWT가 유효하면 보호된 자원에 대한 접근을 허용한다. JWT에 필요한 데이터가 포함되어있을 경우 특정 작업에 대해 DB를 조회할 필요가 줄어들 수도 있다. ㅌ만약 토큰이 Authorization 헤더로 전송될 경우, 쿠키를 사용하지 않기 때문에 CORS가 문제되지 않는다.
+이러한 JWT 방식은 어떻게 보면 무상태(stateless)의 인가 방식 메커니즘이다. 서버의 보호된 route는 Authorization header에 있는 JWT가 유효한지 확인할 것이다. 그리고 JWT가 유효하면 보호된 자원에 대한 접근을 허용한다. JWT에 필요한 데이터가 포함되어있을 경우 특정 작업에 대해 DB를 조회할 필요가 줄어들 수도 있다. 만약 토큰이 Authorization 헤더로 전송될 경우, 쿠키를 사용하지 않기 때문에 CORS가 문제되지 않는다.
 
 
 
