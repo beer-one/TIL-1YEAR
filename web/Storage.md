@@ -74,3 +74,11 @@ sessionStorage.getItem('foo'); // 1
 
 
 
+## Indexed DB
+
+Indexed DB는 파일이나 블롭 등의 많은 양의 구조화된 데이터를 저장하기 위한 로우레벨 API이다. Index를 사용하여 데이터를 고성능으로 탐색할 수 있다. 따라서 많은 양의 구조화된 데이터를 저장하여 사용할 때 유용하다.
+
+Indexed DB는 SQL을 사용하는 RDBMS와 같이 트랜잭션을 사용하는 데이터베이스 시스템이다. 그러나 Indexed DB는 RDBMS의 고정 컬럼 대신 javascript 기반의 객체지향 DB이다. 
+
+
+
