@@ -82,6 +82,30 @@ HttpOnly 쿠키는 Document.cookie API로 접근이 불가능하며 서버에 �
 
 
 
+### SameSite
+
+Set-Cookie HTTP Response header 의 SameSites 속성을 사용하면 쿠키를 동일 사이트의 컨텍스트로 제한해야하는지에 대한 여부를 설정할 수 있다. sameSite의 값은 여러가지가 있다.
+
+
+
+#### Value
+
+sameSite 속성이 지원하는 값은 총 3가지가 있다.
+
+**Lax**: Cookie가 일반적인 cross-site 하위 요청으로 전달되지 않지만 사용자가 origin site로 이동할 때 전송된다. 이 값은 최근 브라우저 버전에 sameSite가 명시되지 않은 브라우저에 대해서 default값이다.
+
+
+
+**Strict**: 무조건 first-party context에서만 보내진다. 
+
+
+
+**None**: 모든 context에 대해 보내진다. 만약에 None으로 설정했다면 Cookie에 Secure 속성을 설정해야한다.
+
+ 
+
+
+
 ## 심화
 
 * **sameSite**
