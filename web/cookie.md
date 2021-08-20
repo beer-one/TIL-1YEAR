@@ -72,7 +72,7 @@ Set-Cookie: beer1_token=abcd1234; Expires=Wed, 21 Jul 2021 12:11:10 GMT;
 
 
 
-### Secure 쿠키, HttpOnly 쿠키
+## Secure 쿠키, HttpOnly 쿠키
 
 Secure 쿠키는 HTTPS 프로토콜 상에서 암호화된 요청일 경우에만 전송된다. 
 
@@ -82,17 +82,21 @@ HttpOnly 쿠키는 Document.cookie API로 접근이 불가능하며 서버에 �
 
 
 
-### SameSite
+## SameSite
 
 Set-Cookie HTTP Response header 의 SameSites 속성을 사용하면 쿠키를 동일 사이트의 컨텍스트로 제한해야하는지에 대한 여부를 설정할 수 있다. sameSite의 값은 여러가지가 있다.
 
 
 
-#### Value
+### Value
 
 sameSite 속성이 지원하는 값은 총 3가지가 있다.
 
-**Lax**: Cookie가 일반적인 cross-site 하위 요청으로 전달되지 않지만 사용자가 origin site로 이동할 때 전송된다. 이 값은 최근 브라우저 버전에 sameSite가 명시되지 않은 브라우저에 대해서 default값이다.
+**Lax**: Cookie가 일반적인 cross-site 하위 요청으로 전달되지 않지만 사용자가 origin site로 이동할 때 전송된다. 이 값은 최근 브라우저 버전에 sameSite가 명시되지 않은 브라우저에 대해서 default값이다. cookie에 default sameSite(Lax) 값을 제공하는 최신버전의 브라우저는 콘솔에 아래 메시지가 표시될 수 있다.
+
+> Cookie "myCookie" has "SameSite" policy set to "Lax" because it is missing a "SameSite" attribute, and "SameSite=Lax" is the default value for this attribute.
+
+sameSite를 지원하는 브라우저에서 쿠키의 sameSite 값이 없을 때 아래 메시지가 발생하는데, 이게 거슬린다면 sameSite값을 명시적으로 지정해주면 된다. (브라우저마다 sameSite 값이 다를 수 있기 때문에 waring message를 제공해주는 것 같다.)
 
 
 
@@ -100,17 +104,19 @@ sameSite 속성이 지원하는 값은 총 3가지가 있다.
 
 
 
-**None**: 모든 context에 대해 보내진다. 만약에 None으로 설정했다면 Cookie에 Secure 속성을 설정해야한다.
+**None**: 모든 context에 대해 보내진다. 만약에 None으로 설정했다면 Cookie에 Secure 속성을 설정해야한다. sameSite=None이지만 secure 속성이 없는 쿠키를 전달받으면 다음과 같은 오류가 발생한다.
 
- 
+> Cookie "myCookie" rejected because it has the "SameSite=None" attribute but is missing the "secure" attribute.
+> 
+> This Set-Cookie was blocked because it had the "SameSite=None" attribute but did not have the "Secure" attribute, which is required in order to use "SameSite=None".
 
 
 
-## 심화
 
-* **sameSite**
-  * 이거에 대한 [Chrome의 입장](https://help.salesforce.com/s/articleView?id=000351874&type=1)
-    * https://seob.dev/posts/%EB%B8%8C%EB%9D%BC%EC%9A%B0%EC%A0%80-%EC%BF%A0%ED%82%A4%EC%99%80-SameSite-%EC%86%8D%EC%84%B1/
-    * https://blog.chromium.org/2020/01/building-more-private-web-path-towards.html
-* secure
-* httpOnly
+
+# Chrome의 입장?
+
+원문은 여기에.. https://help.salesforce.com/s/articleView?id=000351874&type=1
+
+
+
