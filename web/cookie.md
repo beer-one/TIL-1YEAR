@@ -2,7 +2,15 @@
 
 HTTP에서 쿠키는 서버가 클라이언트의 웹 브라우저에 전송하는 작은 데이터 조각이다. 브라우저는 서버에서 쿠키를 받아 저장해두었다가 동일한 서버에 재 요청 시 쿠키와 함께 데이터를 전송한다. 
 
+**참고자료**
+
 https://developer.mozilla.org/ko/docs/Web/HTTP/Cookies
+
+https://help.salesforce.com/s/articleView?id=000351874&type=1
+
+https://seob.dev/posts/%EB%B8%8C%EB%9D%BC%EC%9A%B0%EC%A0%80-%EC%BF%A0%ED%82%A4%EC%99%80-SameSite-%EC%86%8D%EC%84%B1/
+
+https://blog.chromium.org/2020/01/building-more-private-web-path-towards.html
 
 
 
@@ -100,7 +108,7 @@ sameSite를 지원하는 브라우저에서 쿠키의 sameSite 값이 없을 때
 
 
 
-**Strict**: 무조건 first-party context에서만 보내진다. 
+**Strict**: 무조건 first-party context에서만 보내진다. first-party 가 아닌 곳으로는 절대 보내지 않는다.
 
 
 
@@ -114,9 +122,41 @@ sameSite를 지원하는 브라우저에서 쿠키의 sameSite 값이 없을 때
 
 
 
-# Chrome의 입장?
+# Chrome에서의 계획
 
-원문은 여기에.. https://help.salesforce.com/s/articleView?id=000351874&type=1
+Chrome은 Chrome 84를 출시하면서 cookie의 sameSite의 default 값을 변경하였다. Chrome 80을 출시하면서 2020년 2월부터 sameSite 변경사항을 적용했는데 2020년 여름까지 변경사항을 일시적으로 롤백했다. sameSite 변경사항은 보안과 프라이버스를 강화하였지만 쿠키에 의존하는 기존 서비스 로직들이 Chrome의 변경사항에 대해 대응하지 않는다면 문제가 될 수 있다. (롤백한 이유가 sameSite 관련된 이슈가 터졌기 때문이 아닐까..)
+
+
+
+Cookie의 sameSite 속성은 cross-domain으로의 요청에 대한 제어를 담당한다. Chrome Platform Status에서는 sameSite 속성의 의도를 다음과 같이 설명한다.
+
+> SameSite는 일부 CSRF 공격에 대해 상당히 강력한 방어수단이지만, 개발자는 sameSite 속성을 지정하여 CSRF 공격 보호에 신경써야 한다. 달리 말하면, 개발자는 기본적으로 CSRF 공격에 취약하다. 이러한 변화 (sameSite default 값 변경)은 개발자들에게 기본적으로 CSRF 공격에 대해 보호될 수 있을 뿐 아니라 사이트간 요청에서 상태가 필요한 사이트도 보안이 취약한 현상의 모델을 선택할 수 있다.
+
+
+
+만약 sameSite 속성이 지정되지 않는다면, Chrome 84에서는 기본적으로 cookie에 `sameSite = Lax`로 지정해준다. Chrome 84가 릴리즈되지 전까지는 sameSite의 기본값은 `None`이었다. Chrome 84가 출시된 이후에는 개발자는 `sameSite = None; secure`를 명시적으로 설정하여 제한 없이 사용할 수 있다. (https가 제공되어야겠지?)
+
+
+
+그리고 [chromium 블로그](https://blog.chromium.org/2020/01/building-more-private-web-path-towards.html)에서는 `Building a more private web: A path towards making third party cookies obsolete` 이라는 제목의 글이 있는데 앞으로 쿠키정책이 어떻게 바뀔 것인지와 관련된 내용을 소개하고 있다. (2020년 1월 글)
+
+
+
+Chrome의 생각은 웹 애플리케이션(웹 브라우저)에서 개인정보 보호를 강화하기 위해서 여러 계획이 있는데, 그 중 하나는 2년 내로 chrome에 있는 third-party cookie에 대한 지원을 단계적으로 중단하는 것이다. 즉, sameSite = None 지원을 중단하려는 계획으로 보인다.
+
+먼저, 개인정보 보안을 더욱 강화하기 위해서 sameSite가 포함되지 않는 쿠키를 first-party로만 취급하여 (sameSite = Lax) 보안되지 않은 cross-site tracking을 제한하고, third-party 쿠키에는 HTTPS 를 통해서만 접근할 수 있도록 할 예정이라고 한다. (secure 속성 추가 필수) (2020.02월, 이미 시작했음) 
+
+
+
+현재는 thrid-party cookie를 사용해야만 하는 서비스들은 sameSite = None; secure를 설정하면 HTTPS 환경에서 쿠키를 사용할 수 있긴 하지만, 머지않아 쿠키를 third-party에서 사용할 수 없을 수도 있다. 브라우저 정책이 바뀌면 예상치 못한 변경사항이 생길 수 있다는게 참 끔찍하다고 생각이 든다. 나는 프론트와 백엔드가 분리되어있는 환경에서 백엔드는 MSA구조의 API 서버, 프론트는 Vue-js로 구현하여 토이프로젝트를 진행하고 있는데 JWT를 어디에 넣어야 할까 고민하다가 쿠키까지 공부하게 되었는데 결국 MSA 환경에서는 쿠키로 토큰을 넣으면 안된다 라는 결론이 나왔다. 먼저 토큰을 주는 서버의 도메인과 프론트의 도메인은 서로 다른 도메인이라 first-party가 아니며, 그렇게 하려면 third-party를 지원하도록 쿠키의 sameSite 값을 None으로 설정해야 하는데, 이는 chrome에서 deprecated 될거라고 예고했기 때문에 언젠가는 사용할 수 없는 방법이 될 것이다. 그래서 결론은 JWT를 LocalStorage에 저장하고 토큰을 RequestHeader에 넣기로 하였다. 대신 XSS에 취약하기 때문에 이를 방어하기 위해 많은 노력을 기울여야 할 듯 하다.
+
+
+
+
+
+
+
+
 
 
 
