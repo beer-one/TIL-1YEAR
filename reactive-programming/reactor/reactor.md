@@ -1,6 +1,6 @@
 # Reactor
 
-https://projectreactor.io/
+https://projectreactor.io/docs/core/release/reference/
 
 회사에서 Spring Webflux 기반으로 HTTP API 서버를 개발하는데 주요 개발 스택인 Reactor에 대한 지식을 넓히고자 공식 문서를 보면서 공부한 내용을 정리해보겠다.
 
@@ -80,10 +80,6 @@ Blocking code와 추가 쓰레드를 도입하는 병렬 프로그래밍에서 �
 
 
 
-
-
-
-
 Java에서는 비동기 프로그래밍을 지원하기 위해 두 가지 모델을 제공한다.
 
 * Callback: 비동기 메서드들은 반환값을 가지지 않지만 메서드의 결과 값을 사용할 수 있을 때 그 결과값을 사용하는 callback 파라미터를 가진다. 
@@ -97,6 +93,39 @@ Callback과 Future 두 가지가 있는데 Callback은 그 결과값들을 합�
 
 
 
+## Reactive Programming 으로의 변화
+
+Reactor와 같은 Reactive 라이브러리들은 JVM의 비동기 접근방식의 단점을 해결하는 동시에 몇 가지 측면에 초점을 맞추는걸 목표로 하여 개발되었다.
+
+
+
+### Composability and Readability(가독성과 Task 구성능력?)
+
+Composability는 이전 task의 결과를 사용하여 그 결과를 다음 task에 사용할 수 있도록 하는 여러가지 비동기 task들을 조율하는 능력을 의미한다. 그리고 이 몇가지 task들을 fork-join 하는 형식으로 실행시킬 수 있다. 그리고 비동기 task들을 개별적인 컴포넌트로써 재사용할 수 있다.
+
+여러 task들을 조율하는 능력은 코드의 가독성과 유지능력과 관련되어있다. 비동기 프로세스의 개수와 복잡성이 모두 증가하면 코드를 읽기 어려워지고, 유지하는데 어려움이 발생한다. (콜백함수가 많아지면 콜백 지옥이 만들어진다거나..) Reactor는 코드로 추상 프로세스를 구성할 수 있고, 모든 태스크들이 같은 레벨로 유지될 수 있도록 풍부한 구성 옵션들을 제공한다. (Mono와 Flux의 여러 연산들..?)
+
+
+
+### The Assembly Line Analogy[^1]
+
+Reactive 애플리케이션에 의해 처리되는 데이터를 조립 라인을 통과하는 것으로 생각할 수 있다. 공식문서에서 Reactor는 컨베이어 벨트와 워크스테이션으로 비유하였는데, 최초의 데이터는 source(Publisher)로 들어가서 처리가 완료된 데이터는 consumer(Subscriber)로 푸쉬될 준비를 한다. 
+
+최초의 데이터는 여러가지 변형과정을 거치거나 여러 조각으로 분해되거나 여러 조각을 함께 모으는 작업을 거칠 수도 있다. 하나의 지점에 결함이나 문제가 발생하는 경우에 문제가 발생한 워크스테이션에서 데이터의 흐름을 제한하기 위해 upstream에 신호를 보낼 수도 있다.
+
+
+
+### Operators
+
+Reactor에서 Operator는 조립라인의 워크스테이션이다. 각 Operator는 Publisher에게 데이터 처리 과정을 더하고 이전 스텝의 Publisher를 새로운 인스턴스로 감싼다. 그래서 전체의 체인들은 연결되어있다. 데이터는 처음 Publisher를 통과하여 여러 체인을 거치면서 데이터가 변형된다. 결국, Subscriber는 모든 체인을 통과하고 나온 결과를 받는다. 그런데 여기서 주의해야 할 점은 subscriber가 Publisher를 구독하지 않으면 아무 일도 발생하지 않는다. 
+
+Reactive Stream 사양은 operator를 지정하지 않지만, Reactor와 같은 reactive 라이브러리의 장점 중 하나는 operator가 제공하는 풍부한 표현 방식이다. 이런 표현방식은 단순 변환과 필터링을 포함하여 여러 복잡한 orchestration과 오류 처리 등 여러가지를 표현할 수 있다.
+
+
+
+### Nothing Happens Until You subscribe()
+
+Reactor에서 Publisher 체인을 작성하면 그냥 단순히 비동기 프로세스를 만들어 놓을 뿐이지 데이터는 기본적으로 Publisher를 통과하여 처리되지 않는다. Subscriber가 subscribe를 하면 Publisher를 Subscriber에 연결하여 전체 chain에서 데이터 흐름을 유발한다. 이는 upstream으로 전파되는 subscriber의 단일 요청 신호에 의해 내부적으로 처리되고, 다시 Publisher에게 전달된다.
 
 
 
@@ -128,4 +157,7 @@ Callback과 Future 두 가지가 있는데 Callback은 그 결과값들을 합�
 
 
 
+---
+
+[^1]: 비유, 유사점
 
