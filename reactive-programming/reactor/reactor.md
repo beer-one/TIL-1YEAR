@@ -10,35 +10,6 @@ https://projectreactor.io/docs/core/release/reference/
 
 Reactor는 JVM 환경에서 동작하는 non-blocking reactive 라이브러리이다. Reactor에서는 두 가지의 비동기 시퀀스 API를 제공하는데 `Mono`(0 또는 1)와 `Flux`(N개 요소)가 있다. Reactor에서는 또한 `reactor-netty` 프로젝트와 non-blocking 상호 프로세스 통신을 지원한다. MSA에 적합한 Reactor Netty는 HTTP, TCP, UDP를 위한 backpressure가 준비된 네트워크 엔진을 제공한다.
 
-Reactor는 Java 8 이상에서 사용이 가능하다. Reactor가 Java8 함수형 API(CompletableFuture, Stream, Duration)와 관련이 있기 때문일 것이다. 
-
-
-
-Reactor 라이브러리를 사용하기 위해서는 아래와 같이 gradle 설정을 해준다. (gradle 5.0:arrow_up:)
-
-```groovy
-plugins {
-    id "io.spring.dependency-management" version "1.0.9.RELEASE"	
-}
-
-dependencies {
-    implementation platform('io.projectreactor:reactor-bom:2020.0.10')
-    implementation 'io.projectreactor:reactor-core' 
-}
-```
-
-만약 Kotlin을 사용하고 있다면 아래와 같이 해준다. (KotlinDSL)
-
-```groovy
-plugins {
-    id("io.spring.dependency-management") version "1.0.9.RELEASE"
-}
-
-dependencies {
-    implementation("io.projectreactor.kotlin:reactor-kotlin-extensions")
-}
-```
-
 
 
 ## Reactive Programming
