@@ -11,6 +11,8 @@ repositories {
 
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
+    implementation("io.projectreactor:reactor-core:3.3.11.RELEASE")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.9")
 }
 
 tasks {
