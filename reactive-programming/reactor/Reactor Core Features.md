@@ -261,15 +261,67 @@ Item: 14
 
 그런데 주의할 점은 BaseSubscriber 인스턴스는 다른 Publisher를 구독한 경우에는 이미 구독 중인 Publisher의 구독을 취소하기 때문에 재활용이 불가능하다. 인스턴스에 여러 Publisher를 구독한다면 구독자의 onNext 메서드가 병렬로 호출되어야 하는데 이는 onNext 메서드가 병렬로 호출되지 않아야 한다는 Reactive Stream의 규칙을 위반하기 때문이다. 
 
+먼저 BaseSubscriber를 상속하는 클래스를 간단히 구현해보자.
+
+```kotlin
+class SampleSubscriber<T>(
+    private val exitValue: T
+): BaseSubscriber<T>() {
+
+    override fun hookOnSubscribe(subscription: Subscription) {
+        println("Subscribed")
+        request(1)
+    }
+
+    override fun hookOnNext(value: T) {
+        println(value)
+
+        if (value != exitValue)
+            request(1)
+    }
+   
+    override fun hookOnError(throwable: Throwable) { }
+
+    override fun hookOnCancel() { }
+
+    override fun hookOnComplete() { }
+
+    override fun hookFinally(type: SignalType) { }
+}
+```
+
+보통 BaseSubscriber 를 커스텀 할 때 최소한 **hookOnSubscribe()** 메서드와 **hookOnNext** 메서드는 오버라이딩 하여 구현해줘야 한다.
+
+**hookOnSubscribe()** 메서드는 처음 구독 후 몇개의 데이터를 요청할 것인지 request 이벤트를 보내는 메서드이다. **HookOnNext()** 메서드는 onNext 이벤트를 받아 데이터를 처리하는 기능을 한다. 여기서는 데이터 처리 로직을 구현하면 된다. 추가로, request 메서드로 몇개의 데이터를 더 요청하기 위해 request 메서드를 사용할 수도 있다. 예시에서는 exitValue를 받으면 더 이상 request를 하지 않도록 구현되어 있다.
 
 
 
+실제로 SampleSubscribe로 구독하는 코드는 아래에 있다. 4의 값을 받으면 출력 후 더 이상 request를 받지 않는다.
+
+```kotlin
+val sampleSubscriber = SampleSubscriber<Int>(4)
+val intFlux = Flux.range(1, 10)
+
+intFlux.subscribe(sampleSubscriber)
+```
+
+``` 
+Subscribed
+1
+2
+3
+4
+```
 
 
 
+## Backpressure
+
+Reactor에서 Backpressure를 구현할 때, Consumer의 요청이 source로 다시 전파되는 방법은 upstream operator에게 `request`를 보내는 것이다. 현재 요청의 합은 현재의 `demand` 또는 `pending request` 로 불리기도 한다. `Demand`는 제한 없는 요청을 나타내는 `Long.MAX_VALUE`로  제한된다.
 
 
 
+최초 요청이 구독 시점에서 마지막 subscriber으로 전달되지만 모두 구독하는 가장 직접적인 방법은 즉시 제한없는 요청을 트리거하는 것이다. 
 
 
 

@@ -1,61 +1,47 @@
 package com.floidea.example
 
 import kotlinx.coroutines.*
+import org.reactivestreams.Subscription
 import reactor.core.Disposable
+import reactor.core.publisher.BaseSubscriber
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.core.publisher.SignalType
 import reactor.core.scheduler.Schedulers
+import reactor.util.context.Context
 import reactor.util.function.Tuples
 import java.lang.RuntimeException
 import java.util.function.LongConsumer
 import kotlin.coroutines.CoroutineContext
 
 fun main() {
-    val intFlux: Flux<Int> = Flux.generate(
-        {
-            1
-        },
-        { num, sink ->
-            sink.next(num+1)
-            runBlocking {
-                delay(1000L)
-            }
-            num+1
-        }
-    )
+    val sampleSubscriber = SampleSubscriber<Int>(4)
+    val intFlux = Flux.range(1, 10)
 
+    intFlux.subscribe(sampleSubscriber)
+}
 
-    intFlux.doOnError { println("Error") }
-        .doOnCancel { println("Cancel") }
-        .publishOn(Schedulers.boundedElastic())
-        .subscribeOn(Schedulers.boundedElastic())
+class SampleSubscriber<T>(
+    private val exitValue: T
+): BaseSubscriber<T>() {
 
-
-    var disposable: Disposable? = null
-
-    GlobalScope.launch {
-        launch {
-            disposable = intFlux.subscribe {
-                println("num: $it")
-            }
-        }
-
-        delay(1000L)
-
-        launch {
-            intFlux.subscribe {
-                println("num2: $it")
-            }
-        }
+    override fun hookOnSubscribe(subscription: Subscription) {
+        println("Subscribed")
+        request(1)
     }
 
+    override fun hookOnNext(value: T) {
+        println(value)
 
-    runBlocking {
-        delay(5000L)
-
-        disposable?.dispose()
-        println(disposable?.isDisposed)
-        delay(5000L)
+        if (value != exitValue)
+            request(1)
     }
-    
+
+    override fun hookOnError(throwable: Throwable) { }
+
+    override fun hookOnCancel() { }
+
+    override fun hookOnComplete() { }
+
+    override fun hookFinally(type: SignalType) { }
 }
