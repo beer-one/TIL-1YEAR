@@ -247,6 +247,30 @@ Item: 14
 
 
 
+### subscribe 취소
+
+위에서 언급된 subscribe() 메서드는 `Disposable` 인터페이스를 리턴한다. Disposable 인터페이스는 `dispose()` 메서드를 호출하여 구독을 취소할 수 있다. Flux나 Mono 객체에서의 취소는 데이터를 생산해내는 Publisher가 데이터를 생산하는 것을 멈추게 하는 신호이다. 하지만 취소를 한다고 해서 곧바로 Publisher가 데이터를 생산하는 것을 멈추진 않는다. 그래서 어떤 경우에는 Publisher가 취소 신호를 받기 전에 데이터를 이미 모두 방출해서 완료가 되는 경우도 있다.
+
+`Disposables` 클래스는 Disposable 인터페이스와 관련된 여러 기능들이 있는데, `Disposables.swap()` 메서드는 Disposable 구현체를 원자적으로 취소하고 대체할 수 있는`Disposable` 래퍼 객체를 생성한다. 그리고 `Disposables.composite(...)` 메서드는 여러 개의 `Disposable` 인터페이스를 모을 수 있도록 해준다. Disposables.composite() 를 호출하면 `Disposable.Composite` 인터페이스가 리턴되는데 `Disposable.Composite.dispose()` 를 호출하면 composite 된 모든 Disposable이 취소된다.
+
+
+
+### BaseSubscriber
+
+람다식으로 subscriber를 구성하는 방법 외에 더 일반적인 기능을 사용할 수 있도록 Subscriber를 구성할 수도 있다. Reactor에서는 이러한 Subscriber를 구성하기 위해서 `BaseSubscriber` 클래스를 상속하는 클래스를 구현하면 된다. 
+
+그런데 주의할 점은 BaseSubscriber 인스턴스는 다른 Publisher를 구독한 경우에는 이미 구독 중인 Publisher의 구독을 취소하기 때문에 재활용이 불가능하다. 인스턴스에 여러 Publisher를 구독한다면 구독자의 onNext 메서드가 병렬로 호출되어야 하는데 이는 onNext 메서드가 병렬로 호출되지 않아야 한다는 Reactive Stream의 규칙을 위반하기 때문이다. 
+
+
+
+
+
+
+
+
+
+
+
 
 
 
