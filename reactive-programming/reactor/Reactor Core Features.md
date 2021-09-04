@@ -321,11 +321,25 @@ Reactor에서 Backpressure를 구현할 때, Consumer의 요청이 source로 다
 
 
 
-최초 요청이 구독 시점에서 마지막 subscriber으로 전달되지만 모두 구독하는 가장 직접적인 방법은 즉시 제한없는 요청을 트리거하는 것이다. 
+최초 요청이 구독 시점에서 마지막 subscriber으로 전달되지만 모두 구독하는 가장 직접적인 방법은 즉시 제한없는 요청을 트리거하는 것이다. 트리거 하는 방법은 아래와 같이 여러가지 방식이 있다.
+
+* subscribe() 메서드 (람다식)
+* block(), blockFirst(), blockLast()
+* toIterable(), toStream()과 같은 iterating
 
 
 
+가장 간단한 방법은 위에서 했던 것과 같이 `BaseSubscriber` 를 상속하는 Subscriber를 직접 구현해서 사용하는 방식이다. 
 
+
+
+### Downstream에서 요청 변경
+
+Reactor에서는 데이터를 구독하는 subscriber가 publisher에게 요청에 대한 정보를 변경할 수도 있다. 대표적인 예시로는 `buffer(N)` 을 사용하는 방식인데, 만약 `request(2)`를 받았다면 두 개의 전체 버퍼에 대한 요청으로 해석된다. 버퍼가 꽉 차기 위해서 N개의 요소가 필요하므로, buffer 연산자는 요청을 2N개로 변형한다.
+
+
+
+그리고 일부 연산자에는 prefetch라는 int 매개변수를 사용하는 변형이 있을 수도 있다. 이는 downstream으로 요청을 수정하는 또 다른 연산자이다. 이들은 일반적으로 내부 시퀀스를 처리하는 연산자로, 들어오는 각 요소에서 publisher를 파생한다.
 
 
 
