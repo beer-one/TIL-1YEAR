@@ -335,11 +335,60 @@ Reactor에서 Backpressure를 구현할 때, Consumer의 요청이 source로 다
 
 ### Downstream에서 요청 변경
 
-Reactor에서는 데이터를 구독하는 subscriber가 publisher에게 요청에 대한 정보를 변경할 수도 있다. 대표적인 예시로는 `buffer(N)` 을 사용하는 방식인데, 만약 `request(2)`를 받았다면 두 개의 전체 버퍼에 대한 요청으로 해석된다. 버퍼가 꽉 차기 위해서 N개의 요소가 필요하므로, buffer 연산자는 요청을 2N개로 변형한다.
+Reactor에서는 데이터를 구독하는 단계에서 표현된 수요를 각 upstream chain에서의 operator를 통해 변형할 수 있다. 대표적인 예시로는 `buffer(N)` 이다.
 
 
 
-그리고 일부 연산자에는 prefetch라는 int 매개변수를 사용하는 변형이 있을 수도 있다. 이는 downstream으로 요청을 수정하는 또 다른 연산자이다. 이들은 일반적으로 내부 시퀀스를 처리하는 연산자로, 들어오는 각 요소에서 publisher를 파생한다.
+#### buffer(N)
+
+`buffer(N)` 은 upstream애서 방출된 데이터가 N개 모이면 downstream으로 방출하게 하는 operator이다. 만약, upstream에서 N개의 데이터를 방출하지 못하고 complete 된다면 방출한 만큼의 데이터를 downstream으로 보내게 된다.  `buffer(N)` 가 upstream에서 받은 데이터를 버퍼 단위로 방출하기 때문에 리턴 타입은 `Mono<List<T>>` 또는 `Flux<List<T>>` 이다.
+
+```kotlin
+fun main() {
+    val LIMIT = 37
+    var current = 0
+    val upstream = Flux.generate<Int> {
+        runBlocking { delay(100L) }
+        if (current == LIMIT) it.complete()
+        current++
+        it.next(Random.nextInt(1, 10000))
+    }
+
+    upstream.buffer(10) // downStream
+        .subscribe(TestSubscriber<List<Int>>())
+}
+
+class TestSubscriber<T>: BaseSubscriber<T>() {
+
+    override fun hookOnSubscribe(subscription: Subscription) {
+        println("Subscribed")
+        request(2)
+    }
+
+    override fun hookOnNext(value: T) {
+        println("onNext")
+        println(value)
+        request(2)
+    }
+}
+```
+
+* upstream은 Int형인데 buffer(N)을 구독한 subscriber의 제네릭 타입은 List\<Int> 이다.
+* buffer(N)은 upstream에게 request(2N) 신호를 보낸다.
+* LIMIT 변수를 보면 upstream은 37개의 데이터를 방출시키고 completed된다.
+* subscriber에서 출력된 결과를 보면 버퍼단위로 받고 있으며, 마지막 7개는 upstream에서 10개의 데이터를 방출하지 못하고 complete가 되었기 때문에 completed 된 시점에서 7개의 데이터가 담긴 버퍼를 방출하게 된다.
+
+```
+Subscribed
+onNext
+[9471, 682, 3483, 9702, 3783, 9479, 2833, 5835, 7738, 8469]
+onNext
+[9051, 9560, 6650, 1558, 5649, 6366, 6968, 728, 1999, 9710]
+onNext
+[6734, 1440, 5919, 2417, 5356, 1053, 6644, 2899, 4163, 878]
+onNext
+[5822, 7684, 2519, 9596, 2994, 5614, 2678]
+```
 
 
 
@@ -347,7 +396,143 @@ Reactor에서는 데이터를 구독하는 subscriber가 publisher에게 요청�
 
 
 
+만약 Publisher에서 `request(2)` 를 요청받았다면, 
+
+ 만약 `request(2)`를 받았다면 두 개의 전체 버퍼에 대한 요청으로 해석된다. 버퍼가 꽉 차기 위해서 N개의 요소가 필요하므로, buffer 연산자는 요청을 2N개로 변형한다.
 
 
 
+#### prefetch
+
+그리고 downstream에서는 upstream에게 prefetch 매개변수를 이용하여 upstream에게 request를 보내 미리 upstream이 데이터를 방출하도록 시킬 수 있다. prefetch는 `Flux.publishOn(scheduler, prefetch)` 메서드를 아용하면 설정할 수 있다. publishOn에서 설정하지 않는다면 기본적으로 MathMax(16, 256)으로 설정될 것이다. (코드 까보면 그렇게 나와있음)
+
+prefetch는 Publisher에서 요청받을 데이터를 선 반영하는 전략이며, 이는 `Replenishing Optimization` 을 구현한다. operator가 prefetch의 75%정도를 수행했다면, prefetch의 75%정도를 다시 upstream에게 미리 요청하는 전략이다. 이게 무슨의미인지 처음엔 잘 모를 수도 있는데 간단히 예시를 보자.
+
+먼저 아래 코드는 prefetch를 하지 않는 publisher-subscriber 에 대한 예시인데, upstream에서 **데이터를 방출하는 데 걸리는 시간은 1000ms** 라고 가정하자. 그리고 subscriber에서는 **데이터를 처리하고 request를 하는 시간까지 걸리는 시간을 500ms**라고 하면 **request 사이의 간격은 총 1500ms** 정도가 될 것이다.
+
+```kotlin
+fun main() {
+    var i = 1
+    val upstream = Flux.generate<Int> {
+        runBlocking { delay(1000L) }
+        it.next(i++)
+    }
+
+    val downstream = upstream
+        //.publishOn(Schedulers.boundedElastic(), 4)
+
+    downstream.subscribe(TestSubscriber<Int>())
+}
+
+class TestSubscriber<T>: BaseSubscriber<T>() {
+    var time = System.currentTimeMillis()
+
+    override fun hookOnSubscribe(subscription: Subscription) {
+        println("Subscribed")
+        time = System.currentTimeMillis()
+        request(1)
+    }
+
+    override fun hookOnNext(value: T) {
+        println("onNext")
+        val fetchTime = System.currentTimeMillis() - time
+        println("value: $value, fetchTime: $fetchTime")
+        time = System.currentTimeMillis()
+
+        runBlocking { delay(500L) }
+        request(1)
+    }
+}
+```
+
+```
+[main] INFO reactor.Flux.Generate.1 - | request(1)
+Subscribed
+[main] INFO reactor.Flux.Generate.1 - | onNext(1)
+onNext
+value: 1, fetchTime: 1053
+[main] INFO reactor.Flux.Generate.1 - | request(1)
+[main] INFO reactor.Flux.Generate.1 - | onNext(2)
+onNext
+value: 2, fetchTime: 1506
+[main] INFO reactor.Flux.Generate.1 - | request(1)
+[main] INFO reactor.Flux.Generate.1 - | onNext(3)
+onNext
+value: 3, fetchTime: 1508
+[main] INFO reactor.Flux.Generate.1 - | request(1)
+[main] INFO reactor.Flux.Generate.1 - | onNext(4)
+...
+```
+
+
+
+하지만 prefetch를 적용시키면 subscriber가 데이터를 처리하는 동안에도 미리 publisher에게 request 신호를 전달하기 때문에 더 빨리 데이터를 받을 수 있다.
+
+```kotlin
+fun main() {
+    var i = 1
+    val upstream = Flux.generate<Int> {
+        runBlocking { delay(1000L) }
+        it.next(i++)
+    }.log()
+
+    val downstream = upstream
+        .publishOn(Schedulers.boundedElastic(), 4)
+
+    downstream.subscribe(TestSubscriber<Int>())
+}
+
+class TestSubscriber<T>: BaseSubscriber<T>() {
+    var time = System.currentTimeMillis()
+
+    override fun hookOnSubscribe(subscription: Subscription) {
+        println("Subscribed")
+        time = System.currentTimeMillis()
+        request(1)
+    }
+
+    override fun hookOnNext(value: T) {
+        println("onNext")
+        val fetchTime = System.currentTimeMillis() - time
+        println("value: $value, fetchTime: $fetchTime")
+        time = System.currentTimeMillis()
+
+        runBlocking { delay(500L) }
+        request(1)
+    }
+}
+```
+
+```kotlin
+[main] INFO reactor.Flux.Generate.1 - | onSubscribe([Fuseable] FluxGenerate.GenerateSubscription)
+[main] INFO reactor.Flux.Generate.1 - | request(4) // 100% prefetch
+Subscribed
+[main] INFO reactor.Flux.Generate.1 - | onNext(1)
+onNext
+value: 1, fetchTime: 1056
+[main] INFO reactor.Flux.Generate.1 - | onNext(2)
+onNext
+value: 2, fetchTime: 1002
+[main] INFO reactor.Flux.Generate.1 - | onNext(3) // 75% prefetch 수행
+onNext
+value: 3, fetchTime: 1005
+[boundedElastic-1] INFO reactor.Flux.Generate.1 - | request(3) // 75% Re-prefetch
+[main] INFO reactor.Flux.Generate.1 - | onNext(4)
+onNext
+value: 4, fetchTime: 1005
+[main] INFO reactor.Flux.Generate.1 - | onNext(5)
+onNext
+value: 5, fetchTime: 1002
+[main] INFO reactor.Flux.Generate.1 - | onNext(6)
+```
+
+prefetch(4)를 적용하면 최초로 request(4) 신호를 보낸다. 그리고 subscriber는 위와는 다르게 prefetch를 했기 때문에 request()를 보내지 않고 onNext()만 수행하여 미리 fetch된 데이터를 받을 수 있다.
+
+
+
+#### limitRate
+
+`limitRate(N)` 은 downstream request들을 쪼개어 작은 배치단위로 upstream에 전파되도록 한다. 예를 들어, `limitRate(10)` 에 대해 100개의 요청을 하면 최대 10개의 요청이 10번 upsteam으로 전파된다. limitRate는 실제로 앞에서 다룬 replenishing optimization을 구현한다. 
+
+반면에 `limitRequest(N)` 은 downstream 요청을 최대 총 수요로 제한한다. 이는 N개 까지의 요청을 합한다. 하나의 요청으로 전체 수요가 N개를 초과하지 않는 경우, 특정 요청이 전체적으로 upstream에게 전파된다. 그 양이 source에서 방출된 후, limitRequest는 시퀀스가 완료된 것으로 간주하고 onComplete 신호를 downstream으로 보낸 후 source를 취소한다.
 
