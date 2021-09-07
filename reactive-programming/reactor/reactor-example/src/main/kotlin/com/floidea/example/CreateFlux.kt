@@ -1,18 +1,38 @@
 package com.floidea.example
 
 import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
 
 fun main() {
-    val alcohols = Flux.just("beer", "soju", "wine")
+    val primeFlux = Flux.generate<Int, MutableSet<Int>>(
+        { mutableSetOf() },
+        { primeSet, sink ->
+            var next = primeSet.maxOrNull()?.plus(1) ?: 0
 
-    val sportList = listOf("Soccer", "Baseball", "Basketball")
-    val sportFlux = Flux.fromIterable(sportList)
+            if (next == 0) {
+                sink.next(2)
+                primeSet.add(2)
+            } else {
+                while (primeSet.any { next % it == 0 }) {
+                    next++
+                }
+                primeSet.add(next)
+                sink.next(next);
+            }
+            primeSet
+        },
+    )
 
-    val rangeFlux = Flux.range(5, 10).subscribe {
-        println("$it")
+    val flux = Flux.create<Int> { sink ->
+        
     }
 
-    val emptyMono = Mono.empty<String>()
-    val languageMono = Mono.just("Kotlin")
+
+    primeFlux.subscribe {
+        println(it)
+    }
+}
+
+internal interface MyEventListener<T> {
+    fun onDataChunk(chunk: List<T>?)
+    fun processComplete()
 }
