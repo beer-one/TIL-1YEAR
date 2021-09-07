@@ -2,8 +2,6 @@
 
 https://projectreactor.io/docs/kafka/release/reference/
 
-
-
 Reactor Kafka는 Reactor와 Kafka Producer/Consumer API를 기반으로 한 reactive API이다. Reactor Kafka API는 non-blocking back-pressurre를 지원하는 함수형 API를 사용하며 매우 적은 오버헤드로 Kafka로 메시지를 발행하고 Kafka로부터 메시지를 소비할 수 있도록 해준다. Reactor Kafka API는 Reactor를 사용는 애플리케이션이 메시지 버스나 스트리밍의 목적으로 Kafka를 사용하고 다른 시스템과 통합하여 종단 간 reactvie pipeline을 제공할 수 있다.
 
 
@@ -196,7 +194,66 @@ KafkaReceiver에서는 한 번에 하나의 수신 작업만 활성화될 수 �
 
 
 
+## 이슈 모음집
+
+https://github.com/reactor/reactor-kafka/issues/51
+
+https://stackoverflow.com/questions/26678208/spring-boot-shutdown-hook/26678606
 
 
 
+```
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" 
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ko"  xml:lang="ko">
+<meta http-equiv="Content-Type" Content="text/html; charset=utf-8" />
+<meta name="viewport" content="user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, width=device-width, user-scalable=0">
+    
+<!--#메일 전체 div-->
+<div style="max-width: 700px; font-family: '나눔고딕',NanumGothic,'맑은고딕',Malgun Gothic,dotum,'돋움',Dotum,Helvetica; width: 100%; background: #fff; letter-spacing: -1px; padding: 0px; margin: 0px auto;">
+    <!--#메일헤더-->
+    <div style="padding: 24px 0px 10px 0px; text-align: left">
+        <!--#헤더타입 : 로고이미지-->
+        <img style="height: 24px" alt="샵바이" src="http://image.toast.com/aaaaahb/readyshop/email/shop%20by_logo_email.png">
+        <!--#헤더타입 : 텍스트-->
+        <!--#메일제목-->
+        <h2 style="font-weight: normal; font-size: 23px; color: #000; margin: 0 auto; padding: 10px 0px 10px 0px; text-align: left; line-height: 30px"><span style="font-weight: bold">OTP를 재설정해주세요</span></h2>
+    </div>
+    <!--#메일내용 시작-->
+    <div style="width: 100%; padding: 0px; margin: 0px;" cellpadding="0" cellpadding="0" border="0">
+        <!--#메일본문 :들어가는말-->
+        <div style="font-size: 13px; padding: 20px 0px 10px 0px; border-top: #e5e5e5 2px solid">
+            <p style="font-size: 13px; color: #555; text-align: left; padding: 0px; margin: 0px; line-height: 26px;">
+                ${admin.adminId}님, OTP 재설정을 위한 OTP 키 입니다.
+            </p>
+        </div>
+
+        <!--#메일본문 : 진짜 내용-->
+        <div>
+            <!--#테이블 : 내용이 아래로 내려가는 타입-->
+                <table style="font-size: 13px; color: #555; width: 100%; text-align: left; border-top: #e5e5e5 2px solid; border-bottom: #e5e5e5 2px solid; margin: 5px 0px 10px 0px;" cellspacing="0" cellpadding="0">
+                    <tr>
+                        <th style="width: 150px; padding: 8px; background-color:#efefef;">OTP 키</th>
+                        <td style="padding: 8px; letter-spacing: 0px">${otpSecret}</td>
+                    </tr>
+                </table>
+
+        <!--#메일본문 : 첨언내용-->
+        <div style="font-size: 13px; color: #555; text-align: left; padding: 20px 0px 20px 0px; line-height: 17px; border-top: #e5e5e5 0px solid;">
+            <p style="padding: 0px 0px 0px 10px; margin: 0px; line-height: 26px;">
+                <span style="font-weight: bold; margin: 0px 10px 0px -7px">①</span>설정 시작하기 > 직접 입력을 선택합니다.<br>
+                <span style="font-weight: bold; margin: 0px 10px 0px -7px">②</span>이메일 주소와 발급된 OTP 키를 입력합니다.<br>
+                <span style="font-weight: bold; margin: 0px 10px 0px -7px">③</span>시간 기준을 사용 설정했는지 확인한 후 설정을 완료해주세요.
+            </p>
+        </div>
+    </div>
+    <!--#메일푸터-->
+        <div style="font-size: 11px; color: #666666; padding: 25px 20px 25px 20px; line-height: 16px; background-color: #ebebeb">
+            본 메일은 발신전용으로 문의사항은 <a href="https://www.nhn-commerce.com/mygodo/helper_write.html?src=email&kw=000052&ACENO=20">1:1 문의하기</a> 또는 고객센터 1688-7662를 이용해 주시기 바랍니다.<br data-tomark-pass><br data-tomark-pass>
+            <span style="display: block;font-size: 12px; color: #222; text-align: left">ⓒ NHN COMMERCE<strong style="color:#f91d11;">:</strong> Corp. All Rights Reserved.</span>
+        </div>
+    </div>
+</div>
+</html>
+```
 
