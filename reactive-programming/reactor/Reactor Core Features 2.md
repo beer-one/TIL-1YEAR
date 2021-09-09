@@ -109,23 +109,200 @@ Hello thread Thread-0
 
 
 
+Reactor에서는 실행 모델과 실행하는 장소 (쓰레드?)는 Scheduler가 결정한다. Scheduler는 ExecuterService와 유사하게 스케쥴링하는 책임을 가지고 있지만 전용 추상화를 사용하면 더 많은 역할을 수행한다. 
+
+`Schedulers` 클래스는 여러가지 스케쥴러를 static method로 제공한다.
+
+* `Schedulers.immediate()`: 처리 시간에 현재 쓰레드에서 곧바로 실행된다. subscribeOn()을 하지 않으면 default로 Schedulers.immediate()를 사용한다.
+* `Schedulers.single()`: 스케쥴러가 삭제될 때 까지 동일한 쓰레드를 재사용한다. 호출 당 쓰레드를 새로운 것을 사용하려면 `Schedulers.newSingle()`을 사용하면 된다.
+
+* `Schedulers.elastic()`: Unbounded elastic thread pool을 사용한다. 이 스케쥴러는 backpressure에 관한 문제를 많이 숨기고 너무 많은 쓰레드가 사용될 수 있기 때문에 boundedElastic을 지원하는 이후에는 선호되지 않는 스케쥴러이다. 
+* `Schedulers.boundedElastic()` : bounded elastic thread pool을 사용한다. elastic()과 마찬가지로 필요에 따라 새로운 worker pool을 만들고 idle 상태의 pool을 재사용한다. 많은 시간동안 idle 상태에 있는 worker pool은 삭제된다. (defalut: 60s) 그리고 elastic()과 다른 점은 쓰레드 개수가 제한되는데, 이는 default로 CPU 코어 * 10개 까지 제한한다. 쓰레드가 전부 사용된다면 최대 10만개의 작업이 대기되며, 쓰레드가 사용 가능해지면 다시 스케쥴링 할 수 있다. 이 스케쥴러는 I/O 블로킹 작업을 사용할 때 좋은 선택이 될 수 있다. boundedElastic()은 blocking 프로세스가 다른 리소스와 연결되지 않도록 자체 쓰레드를 제공하는 편리한 방식이다. 
+* `Schedulers.parallel()` : 동시성 작업에 특화된 고정 worker pool이다. 이는 CPU 코어 개수만큼의 worker가 생성된다.
+
+* `Schedulers.fromExecuterService()` : 특정 ExecuterService로 스케쥴링한다.
+
+```kotlin
+val logger = LoggerFactory.getLogger("Logger")
+
+val flux = Flux.fromIterable(1..5)
+    .handle<Int> { num, sink ->
+        runBlocking { delay(100L) }
+        sink.next(num)
+    }
+
+flux.subscribeOn(Schedulers.immediate())
+    .subscribe { logger.info("1: $it") }
+flux.subscribeOn(Schedulers.immediate())
+    .subscribe { logger.info("2: $it") }
+```
+
+```
+[main] INFO Logger - 1: 1
+[main] INFO Logger - 1: 2
+[main] INFO Logger - 1: 3
+[main] INFO Logger - 1: 4
+[main] INFO Logger - 1: 5
+[main] INFO Logger - 2: 1
+[main] INFO Logger - 2: 2
+[main] INFO Logger - 2: 3
+[main] INFO Logger - 2: 4
+[main] INFO Logger - 2: 5
+```
+
+```kotlin
+val logger = LoggerFactory.getLogger("Logger")
+logger.info("Start")
+
+val flux = Flux.fromIterable(1..5)
+    .handle<Int> { num, sink ->
+        runBlocking { delay(100L) }
+        sink.next(num)
+    }
+
+flux.subscribeOn(Schedulers.single())
+    .subscribe { logger.info("1: $it") }
+flux.subscribeOn(Schedulers.single())
+    .subscribe { logger.info("2: $it") }
+
+runBlocking { delay(10000) }
+```
+
+```
+[main] INFO Logger - Start
+[single-1] INFO Logger - 1: 1
+[single-1] INFO Logger - 1: 2
+[single-1] INFO Logger - 1: 3
+[single-1] INFO Logger - 1: 4
+[single-1] INFO Logger - 1: 5
+[single-1] INFO Logger - 2: 1
+[single-1] INFO Logger - 2: 2
+[single-1] INFO Logger - 2: 3
+[single-1] INFO Logger - 2: 4
+[single-1] INFO Logger - 2: 5
+```
+
+```kotlin
+val logger = LoggerFactory.getLogger("Logger")
+logger.info("Start")
+
+val flux = Flux.fromIterable(1..5)
+    .handle<Int> { num, sink ->
+        runBlocking { delay(100L) }
+        sink.next(num)
+    }
+
+
+flux.subscribeOn(Schedulers.newSingle("singleThread"))
+    .subscribe { logger.info("1: $it") }
+flux.subscribeOn(Schedulers.newSingle("singleThread"))
+    .subscribe { logger.info("2: $it") }
+
+runBlocking { delay(10000) }
+```
+
+```
+[main] INFO Logger - Start
+[singleThread-1] INFO Logger - 1: 1
+[singleThread-2] INFO Logger - 2: 1
+[singleThread-2] INFO Logger - 2: 2
+[singleThread-1] INFO Logger - 1: 2
+[singleThread-2] INFO Logger - 2: 3
+[singleThread-1] INFO Logger - 1: 3
+[singleThread-1] INFO Logger - 1: 4
+[singleThread-2] INFO Logger - 2: 4
+[singleThread-1] INFO Logger - 1: 5
+[singleThread-2] INFO Logger - 2: 5
+```
+
+```kotlin
+val logger = LoggerFactory.getLogger("Logger")
+logger.info("Start")
+
+val flux = Flux.fromIterable(1..5)
+    .handle<Int> { num, sink ->
+        runBlocking { delay(100L) }
+        sink.next(num)
+    }
+
+
+flux.subscribeOn(Schedulers.elastic())
+    .subscribe { logger.info("1: $it") }
+flux.subscribeOn(Schedulers.elastic())
+    .subscribe { logger.info("2: $it") }
+
+runBlocking { delay(10000) }
+```
+
+```
+[main] INFO Logger - Start
+[elastic-2] INFO Logger - 1: 1
+[elastic-3] INFO Logger - 2: 1
+[elastic-3] INFO Logger - 2: 2
+[elastic-2] INFO Logger - 1: 2
+[elastic-3] INFO Logger - 2: 3
+[elastic-2] INFO Logger - 1: 3
+[elastic-2] INFO Logger - 1: 4
+[elastic-3] INFO Logger - 2: 4
+[elastic-2] INFO Logger - 1: 5
+[elastic-3] INFO Logger - 2: 5
+```
+
+```kotlin
+val logger = LoggerFactory.getLogger("Logger")
+logger.info("Start")
+
+val flux = Flux.fromIterable(1..5)
+    .handle<Int> { num, sink ->
+        runBlocking { delay(100L) }
+        sink.next(num)
+    }
+
+
+flux.subscribeOn(Schedulers.parallel())
+    .subscribe { logger.info("1: $it") }
+flux.subscribeOn(Schedulers.parallel())
+    .subscribe { logger.info("2: $it") }
+
+runBlocking { delay(10000) }
+```
+
+```
+[main] INFO Logger - Start
+[parallel-2] INFO Logger - 2: 1
+[parallel-1] INFO Logger - 1: 1
+[parallel-2] INFO Logger - 2: 2
+[parallel-1] INFO Logger - 1: 2
+[parallel-2] INFO Logger - 2: 3
+[parallel-1] INFO Logger - 1: 3
+[parallel-2] INFO Logger - 2: 4
+[parallel-1] INFO Logger - 1: 4
+[parallel-2] INFO Logger - 2: 5
+[parallel-1] INFO Logger - 1: 5
+```
 
 
 
+일부 연산자들은 특정 스케쥴러를 사용하도록 되어있다. 예를 들어, `Flux.interval()` 팩토리 메서드는 매 특정 시간 동안 데이터를 방출하는 Flux를 만든다. Scheduler를 지정할 수 있으며, Scheduler가 없는 경우 `Schedulers.parallel()` 을 사용한다.
+
+```kotlin
+val intervalFlux = Flux.interval(Duration.ofMillis(300), Schedulers.newSingle("Single"))
+
+intervalFlux.subscribe { logger.info("Subscribed, $it") }
+```
+
+```
+[main] INFO Logger - Start
+[Single-1] INFO Logger - Subscribed, 0
+[Single-1] INFO Logger - Subscribed, 1
+[Single-1] INFO Logger - Subscribed, 2
+[Single-1] INFO Logger - Subscribed, 3
+[Single-1] INFO Logger - Subscribed, 4
+```
 
 
 
-
-
-
-
-
-
-
-
-
-
-
+Reactor는 reactive chain에서 실행 상황을 전환하는 두 가지 수단을 제공한다. (**publishOn**, **subscibeOn**) 두 가지 모두 Scheduler를 사용하여 실행 컨택스트를 해당 스케줄러로 전환할 수 있다. 
 
 
 
