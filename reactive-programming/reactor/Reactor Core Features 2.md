@@ -81,9 +81,7 @@ Flux.fromIterable(1..100)
 
 
 
-
-
-### Threading and Schedulers
+##Threading and Schedulers
 
 Reactor는 동시성 모델을 지향하지(?) 않지만 라이브러리가 동시성을 막지는 못한다. 
 
@@ -306,9 +304,78 @@ Reactor는 reactive chain에서 실행 상황을 전환하는 두 가지 수단�
 
 
 
+### publishOn
+
+publishOn은 subscriber chain의 중간에 다른 operator와 동일한 방식으로 적용된다. 관련된 스케쥴러의 worker에 대해 콜백을 실행하는 동안 upstream에서 신호를 가져와 downstream으로 재생한다. 동시에, 후속 연산자가 실행되는 위치에 영향을 미친다.
+
+* Scheduler에 의해 선택된 쓰레드로 실행 컨텍스트가 변경된다.
+* 명세에 따라 onNext call이 순서대로 발생하므로 단일 쓰레드를 사용한다.
+* 특정 스케쥴러에서 작동하지 않는다면, publishOn 이후의 operator는 계속해서 같은 쓰레드를 사용한다.
 
 
 
+```kotlin
+fun main() {
+    val logger = LoggerFactory.getLogger("Thread")
+    val schedulers = Schedulers.newParallel("parallel", 4)
+
+    val flux = Flux.range(1, 2)
+        .map {
+            logger.info("${it + 10}")				// [main] INFO Thread - 11
+            it + 10
+        }
+        .publishOn(schedulers)							// 컨텍스트 전환 (main -> parallel-x)
+        .map {
+            logger.info("value $it")				// [parallel-x] INFO Thread - value 11
+            "value $it"
+        }
+
+    Thread { 
+        flux.subscribe { logger.info(it) }	// [parallel-x] INFO Thread - value 11
+    }.run()
+
+    runBlocking { delay(10000L) }
+}
+```
+
+* publishOn() 이전과 이후 체인은 다른 쓰레드를 사용한다.
+* publishOn()을 호출하면 스케쥴러에 의해 실행 컨텍스트가 변경된다.
+
+
+
+### subscribeOn
+
+subscribeOn은 backward chain이 구성될 때 구독 프로세스에 적용된다. 그리고 어느 체인에서 subscribeOn()을 호출함과 관계 없이, 항상 source 방출의 context에 영향을 끼친다. 그러나 publishOn에 대한 후속 호출의 동작에는 영향을 미치지 않으며, 이후 체인에 대한 실행 컨텍스트를 계속 전환한다.
+
+* subscribeOn의 Scheduler에 의해 선택된 쓰레드로 전체 체인에 대한 실행 컨텍스트가 변경된다.
+* publishOn 이후의 체인에 대해서는 publishOn의 Scheduler에 의해 선택된 쓰레드로 실행 컨텍스트가 변경된다.
+
+
+
+```kotlin
+fun main() {
+    val logger = LoggerFactory.getLogger("Thread")
+    val schedulers = Schedulers.newParallel("parallel", 4)
+
+    val flux = Flux.range(1, 2)
+        .subscribeOn(Schedulers.boundedElastic())		// 일단 boundedElastic-x 로 컨텍스트 전환
+        .map {
+            logger.info("${it + 10}")								// [boundedElastic-x] INFO Thread - 11
+            it + 10
+        }
+        .publishOn(schedulers)											// 이후 체인은 parallel-x 로 전환
+        .map {
+            logger.info("value $it")								// [parallel-x] INFO Thread - value 11
+            "value $it"
+        }
+
+    Thread {
+        flux.subscribe { logger.info(it) }					// [parallel-x] INFO Thread - value 11
+    }.run()
+
+    runBlocking { delay(10000L) }
+}
+```
 
 
 
