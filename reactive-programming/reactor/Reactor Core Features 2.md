@@ -53,12 +53,6 @@ val primeFlux = Flux.generate<Int, MutableSet<Int>>(
 
 
 
-
-
-
-
-
-
 ### Handle
 
 `handle` 메서드는 Mono(Flux)의 인스턴스 메서드로서, 기존 스트림에 어떤 로직을 추가하여 핸들링할 때 사용한다. 이 메서드는 `generate` 메서드와 유사하며, `SynchronousSink`를 사용하고 오직 1:1 방출만 허용한다. 대신, `handle` 메서드는 각 source의 요소에서 임의의 값을 생성할 수 있고, 일부 요소는 건너뛸 수도 있다. 그래서 handle 서드는 map과 filter 역할을 모두 하는 만능 메서드이다.
@@ -376,6 +370,97 @@ fun main() {
     runBlocking { delay(10000L) }
 }
 ```
+
+
+
+
+
+## 에러 핸들링
+
+리액티브 스트림에서 에러는 이벤트를 종료시킨다. 에러가 발생하면 시퀀스가 종료되고 연산자 체인을 따라 마지막 단계의 체인과, 정의한 구독자 및 해당 onError 메서드로 전파된다.
+
+애플리케이션 단에서 정의되는 에러도 있기 마련인데, 이러한 에러를 위해서 subscriber의 `onError` 메서드를 정의하여 에러를 핸들링할 수 있다. onError 메서드를 정의하지 않는다면 UnsupportedOperationException이 던져진다. 
+
+Reactor는 chain의 중간에서 error-handling operator로 에러를 핸들링하게 할 수도 있다. operator로는 아래 역할을 할 수 있다.
+
+* 에러를 잡고 default value 리턴
+* 에러를 잡고 fallback method 실행
+* 에러를 잡고 fallback value 계산
+* 에러를 잡고 다른 Exception 방출
+* 에러를 잡고 로깅 후 기존 Exception 방출
+* finally block과 같은 역할 하기
+
+
+
+### onErrorReturn
+
+onErrorReturn은 에러를 잡고 default value를 리턴시킨다. 에러가 발생하면 default value를 리턴하고 구독이 종료된다.
+
+```kotlin
+fun main() {
+    val logger = LoggerFactory.getLogger("Logger")
+
+    val flux = Flux.fromIterable(1..10)
+        .handle<Int> { num, sink ->
+            if (num == 4) sink.error(NumberIs4Exception())
+            else sink.next(num)
+        }.onErrorReturn(-1)
+
+
+    flux.subscribe { logger.info(it.toString()) }
+}
+```
+
+```
+[main] INFO Logger - 1
+[main] INFO Logger - 2
+[main] INFO Logger - 3
+[main] INFO Logger - -1
+```
+
+
+
+### onErrorResume
+
+onErrorResume은 onErrorReturn보다 더 일반적인 방법으로 에러를 핸들링하는 방법이다. fallback function의 리턴값을 onErrorResume의 에러핸들링 리턴 값으로 사용한다.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
