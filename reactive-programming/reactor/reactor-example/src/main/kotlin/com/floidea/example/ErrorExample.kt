@@ -7,22 +7,29 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
 import reactor.util.Loggers
+import reactor.util.retry.Retry
+import java.time.Duration
 import kotlin.random.Random
 
 fun main() {
     val logger = LoggerFactory.getLogger("Logger")
 
-    val fallback = Mono.fromCallable {
-        Random.nextInt(-1, -10)
-    }
-
-    val flux = Flux.fromIterable(1..10)
-        .handle<Int> { num, sink ->
-            if (num == 4) sink.error(NumberIs4Exception())
+    val flux = Flux.interval(Duration.ofMillis(100L))
+        .handle<Long> { num, sink ->
+            if(Random.nextInt(10) == 0) sink.error(TemporaryException())
             else sink.next(num)
-        }.onErrorResume { fallback }
+        }.doOnError { logger.error("Temporary error occurred!!") }
+        .retryWhen(Retry.from { it.take(3) })
+        .doFinally { logger.info("Finished") }
 
     flux.subscribe { logger.info(it.toString()) }
+
+    runBlocking { delay(10000L) }
 }
 
 class NumberIs4Exception(): RuntimeException()
+class NumberIs5Exception(): RuntimeException()
+
+class WrongNumberException: RuntimeException()
+
+class TemporaryException: RuntimeException()

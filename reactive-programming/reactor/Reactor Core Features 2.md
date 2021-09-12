@@ -426,31 +426,260 @@ onErrorResume은 onErrorReturn보다 더 일반적인 방법으로 에러를 핸
 
 
 
+```kotlin
+fun main() {
+    val logger = LoggerFactory.getLogger("Logger")
+
+    val fallback = Mono.fromCallable {
+        Random.nextInt(-10, -1)
+    }
+
+    val flux = Flux.fromIterable(1..10)
+        .handle<Int> { num, sink ->
+            if (num == 4) sink.error(NumberIs4Exception())
+            else sink.next(num)
+        }.onErrorResume { fallback }
+
+    flux.subscribe { logger.info(it.toString()) }
+}
+```
+
+```
+[main] INFO Logger - 1
+[main] INFO Logger - 2
+[main] INFO Logger - 3
+[main] INFO Logger - -2
+```
+
+
+
+onErrorReturn과 onErrorResume은 파라미터 `Class<E> type` 을 지정하여 특정 예외만을 받아서 처리하도록 설정할 수도 있다. 
+
+```kotlin
+fun main() {
+    val logger = LoggerFactory.getLogger("Logger")
+
+    val fallback = Mono.fromCallable {
+        Random.nextInt(-10, -1)
+    }
+
+    val flux = Flux.fromIterable(5..10)
+        .handle<Int> { num, sink ->
+            if (num == 4) sink.error(NumberIs4Exception())
+            else if (num == 5) sink.error(NumberIs5Exception())
+            else sink.next(num)
+        }.onErrorResume(NumberIs4Exception::class.java) { fallback }
+        .onErrorReturn(NumberIs5Exception::class.java, 0)
+    
+    flux.subscribe { logger.info(it.toString()) }
+}
+```
+
+```
+[main] INFO Logger - 0
+```
+
+
+
+### onErrorMap
+
+onErrorMap은 에러를 받아서 다른 에러로 다시 던지는 역할을 한다. NumberIs4Exception이 발생한 후 onErrorMap을 지나면 WrongNumberException()으로 다시 던져지는걸 확인할 수 있다.
+
+```kotlin
+fun main() {
+    val logger = LoggerFactory.getLogger("Logger")
+  
+    val flux = Flux.fromIterable(1..10)
+        .handle<Int> { num, sink ->
+            if (num == 4) sink.error(NumberIs4Exception())
+            else sink.next(num)
+        }.onErrorMap(NumberIs4Exception::class.java) { WrongNumberException() }
+        .onErrorResume {
+            logger.error("Error: ", it)
+            Mono.just(0)
+        }
+
+    flux.subscribe { logger.info(it.toString()) }
+}
+```
+
+```
+[main] INFO Logger - 1
+[main] INFO Logger - 2
+[main] INFO Logger - 3
+[main] ERROR Logger - Error: 
+com.floidea.example.WrongNumberException
+	...
+```
+
+
+
+### doOnError
+
+doOnError는 에러가 발생할 때 그걸 캐치하고 로깅을 하는 등 다른 액션을 취한 후 해당 에러를 다시 던지는 역할을 한다. doOnError를 거쳐 에러로깅을 한 후 에러가 다시 던져저서 onErrorReturn에 걸린다.
+
+```kotlin
+fun main() {
+    val logger = LoggerFactory.getLogger("Logger")
+
+    val flux = Flux.fromIterable(1..10)
+        .handle<Int> { num, sink ->
+            if (num == 4) sink.error(NumberIs4Exception())
+            else sink.next(num)
+        }.doOnError {
+            logger.error("Error occurred", it)
+        }
+        .onErrorReturn(NumberIs4Exception::class.java, 0)
+
+    flux.subscribe { logger.info(it.toString()) }
+}
+```
+
+```
+[main] INFO Logger - 1
+[main] INFO Logger - 2
+[main] INFO Logger - 3
+[main] ERROR Logger - Error occurred
+com.floidea.example.NumberIs4Exception
+...
+[main] INFO Logger - 0
+```
 
 
 
 
 
+### doFinally
+
+에러와는 관계 없지만 에러가 발생함과 관계없이 액션을 취할 때 사용한다. 에러 발생, 취소 되어 스트림이 끝나거나 정상적으로 스트림이 완료되었을 때 모두 doFinally를 실행한다. doFinally 블록은 리소스를 해제하는 작업을 할 때 유용하다.
+
+```kotlin
+fun main() {
+    val logger = LoggerFactory.getLogger("Logger")
+    
+    val flux = Flux.fromIterable(1..3) // 1..4로 변경하면..
+        .handle<Int> { num, sink ->
+            if (num == 4) sink.error(NumberIs4Exception())
+            else sink.next(num)
+        }.doOnComplete() { logger.info("Completed!") }
+        .doOnError { logger.info("Error!") }
+        .doFinally { logger.info("Finally!") }
+
+    flux.subscribe { logger.info(it.toString()) }
+}
+```
+
+**에러 발생 안할 경우**
+
+```
+[main] INFO Logger - 1
+[main] INFO Logger - 2
+[main] INFO Logger - 3
+[main] INFO Logger - Completed!
+[main] INFO Logger - Finally!
+```
+
+**에러 발생 할 경우**
+
+```
+[main] INFO Logger - 1
+[main] INFO Logger - 2
+[main] INFO Logger - 3
+[main] INFO Logger - Error!
+[main] INFO Logger - Finally!
+```
 
 
 
 
 
+### Retrying
+
+에러가 발생하면 onErrorXXX 또는 doOnError를 사용하여 에러 핸들링을 하거나 로깅 등 후속 처리를 할 수 있다. 하지만, 에러가 발생하면 그 즉시 Flux(Mono)는 종료되는데, 에러가 발생하는 이유가 일시적인 오류여서 재 시도를 하면 해결할 수 있는 상황도 분명 있을 것이다. (재시도를 하는 것이 에러 핸들링의 최선의 방법인 경우도 있다.) 
+
+Reactor에서는 retry() 라는 메서드를 이용하여 스트림 구독 재시도를 할 수 있다. retry()의 파라미터는 시도 횟수이며 재시도를 하게되면 첫 번째 요소부터 구독을 다시 시도한다.
+
+아래 로그를 보면 에러 발생 후 `Temporary error ocuurred!!` 라는 로그를 쌓은 후 처음부터 다시 시도하는 것을 알 수 있는데 에러가 한 번 더 발생하면 retry를 하지 않고 즉시 구독이 종료된다.
+
+
+
+```kotlin
+fun main() {
+    val logger = LoggerFactory.getLogger("Logger")
+
+    val flux = Flux.interval(Duration.ofMillis(100L))
+        .handle<Long> { num, sink ->
+            if(Random.nextInt(10) == 0) sink.error(TemporaryException())
+            else sink.next(num)
+        }.doOnError { logger.error("Temporary error occurred!!") }
+        .retry(1)
+        .doFinally { logger.info("Finished") }
+
+    flux.subscribe { logger.info(it.toString()) }
+}
+```
+
+```
+[parallel-1] INFO Logger - 0
+[parallel-1] INFO Logger - 1
+[parallel-1] ERROR Logger - Temporary error occurred!!
+[parallel-2] INFO Logger - 0
+[parallel-2] INFO Logger - 1
+[parallel-2] INFO Logger - 2
+[parallel-2] INFO Logger - 3
+[parallel-2] INFO Logger - 4
+[parallel-2] INFO Logger - 5
+[parallel-2] ERROR Logger - Temporary error occurred!!
+[parallel-2] INFO Logger - Finished
+```
 
 
 
 
 
+retry 메서드보다 더 발전된 버전의 메서드인 `retryWhen()` 도 있다. retryWhen은 Companion Flux를 사용하여 어떤 실패 상황에서는 retry를 할지 말지 정할 수 있다. 이 Companion Flux는 retry 전략을 담고있는 `Flux<RetrySignal>` 이며, 이는 retryWhen의 매개변수로 설정된다. 
+
+Retry 클래스는 추상 클래스이지만, 단순 람다로 companion을 변환하려는 경우에 Factory method를 제공한다. Retry cycle은 다음 단계로 진행된다.
+
+1. 에러가 발생한 시간마다, companion flux로 RetrySignal이 방출된다. RetrySignal은 오류와 오류와 관련된 메타데이터의 접근을 제공한다.
+2. companion Flux가 값을 방출하면 재시도를 한다.
+3. companion Flux가 완료되면 에러가 발생할 때 재시도를 하지 않고 시퀀스를 종료시킨다.
+4. companion Flux가 에러를 발생한다면 재시도를 하지 않고 시퀀스를 종료시킨다.
 
 
 
+```kotlin
+fun main() {
+    val logger = LoggerFactory.getLogger("Logger")
 
+    val flux = Flux.interval(Duration.ofMillis(100L))
+        .handle<Long> { num, sink ->
+            if(Random.nextInt(10) == 0) sink.error(TemporaryException())
+            else sink.next(num)
+        }.doOnError { logger.error("Temporary error occurred!!") }
+        .retryWhen(Retry.from { it.take(3) })
+        .doFinally { logger.info("Finished") }
 
+    flux.subscribe { logger.info(it.toString()) }
 
+    runBlocking { delay(10000L) }
+}
+```
 
-
-
-
+```
+[parallel-1] INFO Logger - 0
+[parallel-1] INFO Logger - 1
+[parallel-1] INFO Logger - 2
+[parallel-1] INFO Logger - 3
+[parallel-1] ERROR Logger - Temporary error occurred!!
+[parallel-2] INFO Logger - 0
+[parallel-2] INFO Logger - 1
+[parallel-2] ERROR Logger - Temporary error occurred!!
+[parallel-3] INFO Logger - 0
+[parallel-3] INFO Logger - 1
+[parallel-3] ERROR Logger - Temporary error occurred!!
+[parallel-3] INFO Logger - Finished
+```
 
 
 
