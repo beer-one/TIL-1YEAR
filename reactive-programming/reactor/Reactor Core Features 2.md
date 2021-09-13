@@ -685,6 +685,42 @@ fun main() {
 
 
 
+## Processor, Sink
+
+Processor는 Subscriber의 역할도 하는 특수한 Publisher이다. 이는 원래는 Reactive Stream 구현체 간에 공유될 수 있는 중간 단계로 표현할 목적으로 의도되었다. 그러나 Reactor에서는 이 중간 단계를 Publisher의 Operator로 표현한다. 
+
+Processor를 처음 접할 때 흔히 저지르는 실수는 Subscriber 인터페이스에서 노출된 onNext, onComplete, onError 메서드를 직접 호출하려고 하는 것이다. Publisher를 노출하는 대신 Subscriber를 전달해야하는 Reactive Stream 기반 API를 사용하지 않는 한 Processor는 사실 별로 유용하진 않을 것이다. 
+
+그 대신에 Sink가 좋은 대안이 될 수 있다. Reactor에서 Sink는 안전하게 신호를 수동 트리거링 할 수 있는 클래스이다. Sink는 구독과 관련될 수도 있고 완전히 독립적인 것이 될 수도 있다. 
+
+> 3.4.0 버전 부터 Sink는 일급 객체가 되었고, Processor는 완전히 phase out 되었다.  
+
+
+
+
+
+### Sinks.One, Sinks. Many
+
+ reactor-core에서 지원하는 Sinks의 기본 특징은 멀티쓰레드 사용이 감지되도록 보장하고, downstream subscriber의 관점에서 사양 위반 또는 정의되지 않는 동작으로 이어질 수 없다는 것이다. `tryEmit()` API를 사용할 때는 병렬 호출이 빨리 실패한다. `emit()` API를 호출할 때는 제공되는 `EmissionFailureHandler` 는 retry를 허용한다. 그렇지 않으면, sink는 에러와 함께 종료된다.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
