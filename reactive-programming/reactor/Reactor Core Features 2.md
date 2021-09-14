@@ -703,6 +703,15 @@ Processor를 처음 접할 때 흔히 저지르는 실수는 Subscriber 인터�
 
  reactor-core에서 지원하는 Sinks의 기본 특징은 멀티쓰레드 사용이 감지되도록 보장하고, downstream subscriber의 관점에서 사양 위반 또는 정의되지 않는 동작으로 이어질 수 없다는 것이다. `tryEmit()` API를 사용할 때는 병렬 호출이 빨리 실패한다. `emit()` API를 호출할 때는 제공되는 `EmissionFailureHandler` 는 retry를 허용한다. 그렇지 않으면, sink는 에러와 함께 종료된다.
 
+이는 Processor.onNext 에 비해 개선된 것으로, 외부에서 동기화하거나 downstream subscriber의 관점에서 정의되지 않은 동작으로 이어져야 한다.
+
+Sinks 빌더는 지원되는 기본 producer 타입에 가이드된 API를 제공한다. Sinks 빌드의 종류는 아래와 같다.
+
+* `many().multicast()`: subscriber 들에게만 새로 푸쉬된 데이터를 전송하여 backpressure를 존중하는 sink
+* `many().unicast()`: `many().multicast()` 와 같지만 첫 번째 subscriber가 등록하기 전에 푸쉬된 데이터가 버퍼링된다.
+* `many().replay()`: 새로운 subscriber에 대해 구독 전 과거 일부 히스토리를 리플레이해준다.
+* `one()`: subscriber에게 하나의 요소만을 보내주는 sink.
+* `empty()`: subscriber로 종료 시그널만 보내는 sink. 
 
 
 
@@ -710,10 +719,17 @@ Processor를 처음 접할 때 흔히 저지르는 실수는 Subscriber 인터�
 
 
 
+### sinks.many
 
+sinks.many()의 여러 종류에 대해 알아보자.
 
+**Sinks.many().unicast().onBackpressureBuffer(args?)**
 
+unicast Sinks.many() 는 internal buffer를 사용하여 backpressure를 다룰 수 있다. 하지만 trade-off로 최대 하나의 subscriber만 가질 수 있다는 점이 있다.
 
+가장 기본적인 unicast sink는 `Sinks.many().unicast().onBackpressureBuffer()` 를 통해 생성되지만 `Sinks.many().unicast()` 의 추가 unicast 정적 팩토리 메서드로 fine tuning을 할 수 있다.
+
+예를 들어, 기본적으로 버퍼는 unbounded이다. 
 
 
 
