@@ -6,9 +6,20 @@ import reactor.core.publisher.Sinks
 
 
 fun main() {
-    val multicastSink = Sinks.many().multicast().directBestEffort<Int>()
+    val multicastSink = Sinks.many().multicast().onBackpressureBuffer<Int>()
 
-    (1..100).forEach { multicastSink.emitNext(it, Sinks.EmitFailureHandler.FAIL_FAST) }
+    object : Thread() {
+        override fun run() {
+            var num = 1
+            while (true) {
+                val x = multicastSink.tryEmitNext(num)
+                println(x)
+                sleep(1000L)
+            }
+        }
+    }.run()
+
+
 
     val flux = multicastSink.asFlux()
 

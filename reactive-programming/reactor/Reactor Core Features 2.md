@@ -729,7 +729,7 @@ unicast Sinks.many() 는 internal buffer를 사용하여 backpressure를 다룰 
 
 가장 기본적인 unicast sink는 `Sinks.many().unicast().onBackpressureBuffer()` 를 통해 생성되지만 `Sinks.many().unicast()` 의 추가 unicast 정적 팩토리 메서드로 fine tuning을 할 수 있다.
 
-예를 들어, 기본적으로 버퍼는 unbounded이다. 
+예를 들어, 기본적으로 버퍼는 unbounded이다. Subscriber가 아직 데이터를 요청하지 않은 상태에서 데이터를 푸쉬하는 경우, 푸쉬된 모든 데이터가 버퍼링된다.  `Sinks.many().unicast().onBackpressureBuffer(Buffer)` 메서드를 이용하여내부 버퍼를 변경할 수 있다. (Buffer를 Queue로 변경한다던지..) Buffer가 bounded인 경우에 buffer가 꽉 찼고 downstream으로부터 요청이 충분한 요청이 수신되지 않는다면 push를 거절할 수 있다.
 
 
 
