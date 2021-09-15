@@ -60,8 +60,7 @@ Status: Downloaded newer image for docker/getting-started:latest
 
 
 그리고 웹 브라우저에서 8080포트로 접속하면 아래와 같은 웹 페이지가 나온다.
-
-![image-20210915235527228](/Users/yunseowon/Library/Application Support/typora-user-images/image-20210915235527228.png)
+![스크린샷 2021-09-15 오후 11 54 55](https://user-images.githubusercontent.com/35602698/133467220-784014da-894f-45bb-a29d-62898325a4ce.png)
 
 
 
@@ -71,7 +70,8 @@ Docker Dashboard는 Mac과 Windows에서 지원한다. Docker Dashboard는 컨�
 
 위에서 `docker/getting-started` 이미지를 실행시킨 후 대시보드를 확인하면 다음과 같이 컨테이너가 목록에 생기는 것을 알 수 있다.
 
-![image-20210916001310465](/Users/yunseowon/Library/Application Support/typora-user-images/image-20210916001310465.png)
+![스크린샷 2021-09-16 오전 12 13 06](https://user-images.githubusercontent.com/35602698/133467180-1c6378fd-4b2b-44f6-abe3-ff6eaf4dc007.png)
+
 
 현재 Running 중인 컨테이너는 초록색으로, 포트 또한 명시되어 있다. 그리고 이미 종료된 컨테이너는 흑색으로 보여준다. 그리고 `peaceful_hypatia` 컨테이너는 `docker run` 으로 실행된 컨테이너고, mysql는 docker compose로 실행된 컨테이너라 하위 컨테이너들을 볼 수 있다.
 
@@ -158,8 +158,8 @@ $ docker run -dp 3000:3000 getting-started
 
 
 그 후 localhost:3000 에 접속하면 다음과 같은 화면으로 접속이 된다.
+![스크린샷 2021-09-16 오전 12 51 06](https://user-images.githubusercontent.com/35602698/133467101-9bbf6862-286e-438b-9865-0f22e2796cc2.png)
 
-![image-20210916005122875](/Users/yunseowon/Library/Application Support/typora-user-images/image-20210916005122875.png)
 
 
 
