@@ -17,7 +17,7 @@ $ docker run -d ubuntu bash -c "shuf -i 1-10000 -n 1 -o /data.txt && tail -f /de
 
 2. 컨테이너에 접속하여 텍스트파일이 있는지 확인하자. 그렇게 하기 위해서 Dashboard를 열어 CLI 버튼을 입력하거나 다음 명령어를 입력하면 된다. 텍스트파일을 확인하기 위해서 cat 명령어를 사용하자.
 
-![image-20210926231217649](/Users/yunseowon/Library/Application Support/typora-user-images/image-20210926231217649.png)
+<img width="1047" alt="스크린샷 2021-09-26 오후 11 12 10" src="https://user-images.githubusercontent.com/35602698/134813048-d4d64616-b668-493f-a973-00ded7272053.png">
 
 ```shell
 $ docker exec -it ${containerId} /bin/sh
@@ -78,7 +78,8 @@ $ docker run -dp 3000:3000 -v todo-db:/etc/todos getting-started
 
 4. localhost:3000 으로 접속하여 데이터를 막 생성하자.
 
-   ![스크린샷 2021-09-26 오후 11.45.11](/Users/yunseowon/Desktop/스크린샷 2021-09-26 오후 11.45.11.png)
+![스크린샷 2021-09-26 오후 11 45 11](https://user-images.githubusercontent.com/35602698/134813058-6b0750d1-d164-4723-a5d0-7b746795c4a2.png)
+
 
 5. 컨테이너를 재시작하여 데이터가 유지되는지 확인하자. 아마 유지될 것이다.
 
