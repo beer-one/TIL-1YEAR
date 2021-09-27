@@ -1,107 +1,116 @@
-# Multi Container Apps
+# Docker File System
 
-대부분의 웹 애플리케이션은 웹서버-DB 가 동시에 돌아가야 한다. 그래서 웹 서버를 띄울 때 동시에 DB를 띄우고 싶어할 수도 있다. 그러면 웹 애플리케이션을 컨테이너로 만들 때 어떻게 해야 할까? 웹 서버와 DB를 하나의 컨테이너로 격리해서 띄워야할까 아니면 웹서버와 DB를 각각 다른 컨테이너로 띄워야 할까? 
-
-일반적으로, 각 컨테이너는 한 가지 일을 맡으며, 그 일을 잘 수행해야 한다. (각각 다른 컨테이너로 띄우는게 좋다.) 이러한 이유는 다음과 같다.
-
-* 웹 서버는 Scale-out을 해야할 수도 있는데 DB를 제외하고 웹 서버만을 늘리려면 각각 다른 컨테이너로 관리하는게 맞다.
-* 한 가지 역할만을 수행하도록 컨테이너를 구성한다면 컨테이너에 대한 의존성을 분리시킬 수 있고, 업데이트에 용이하다.
-* 애플리케이션 환경 별로 DB를 다르게 사용할 수도 있는데 이를 가능하게 하기 위해서는 DB를 웹서버와 함께 컨테이너화시키지 않는 것이 좋다(맞다).
+컨테이너를 실행하면, 컨테이너의 파일 시스템을 위해 이미지로부터 다양한 레이어를 사용한다. 각 컨테이너는 파일을 생성하고 수정하고 삭제하기 위해 자신의 `scratch space` 를 얻는다. 이렇게 하면 같은 이미지를 사용하는 컨테이너에서 한 컨테이너가 변경되더라도 다른 컨테이너에게는 절대 영향이 가지 않는다.
 
 
 
-이러한 이유 때문에 보통 웹 서버와 DB를 각각 다른 컨테이너로 관리하게 된다.
+이를 알아보기 위해서 같은 이미지를 사용하는 두 컨테이너를 띄워본 후 각각 파일을 생성해보도록 하자.
 
-![image-20210927224621442](/Users/yunseowon/Library/Application Support/typora-user-images/image-20210927224621442.png)
-
-그러면 컨테이너 끼리 통신을 할 수 있어야 하는데 Docker에서는 컨테이너 간 통신을 어떻게 지원하는지 알아보자.
-
-
-
-## Container Networking
-
-기본적으로, 컨테이너 끼리는 고립된 환경에서 실행하기 때문에 같은 호스트 머신 내에서 다른 컨테이너에 관한 정보를 모른다. 그 렇기 때문에 여러 개의 컨테이너를 하나의 시스템으로 설계하기 위해서는 컨테이너와의 통신 방법을 알아야 하는데 Docker에서는 Networking 방식으로 컨테이너 끼리 통신할 수 있다.
-
-컨테이너를 네트워크에 두는 방식은 두 가지가 있다. 하나는 **(1) 컨테이너가 시작할 때 네트워크를 할당하는 방식**이고, 다른 하나는 **(2) 이미 실행 중인 컨테이너에게 네트워크를 할당하는 방식**이다. 먼저 (1)의 방식부터 알아보자.
-
-
-
-1. 네트워크를 생성한다.
+1. `ubuntu` 컨테이너를 하나 띄워서 아무 텍스트파일을 하나 생성한다.
 
 ```shell
-$ docker network create todo-app
-
-4624d89f37950bfb9f3370057aa46363c194108367f12c946688720be327fe71
+$ docker run -d ubuntu bash -c "shuf -i 1-10000 -n 1 -o /data.txt && tail -f /dev/null"
 ```
 
-2. MySQL 컨테이너를 실행시킴과 동시에 네트워크를 붙여보자. 데이터베이스를 사용하기 위해 데이터베이스를 초기화시킬 몇 가지 환경변수를 함께 정의한다.
+* && 이전의 명령어는 1~10000 의 숫자 중 하나를 랜덤으로 /data.txt에 쓰는 명령어이다.
+* && 이후의 명령어는 컨테이너를 지속적으로 실행시키기 위해 파일을 보는 명령어이다.
+
+2. 컨테이너에 접속하여 텍스트파일이 있는지 확인하자. 그렇게 하기 위해서 Dashboard를 열어 CLI 버튼을 입력하거나 다음 명령어를 입력하면 된다. 텍스트파일을 확인하기 위해서 cat 명령어를 사용하자.
+
+<img width="1047" alt="스크린샷 2021-09-26 오후 11 12 10" src="https://user-images.githubusercontent.com/35602698/134813048-d4d64616-b668-493f-a973-00ded7272053.png">
 
 ```shell
-$ docker run -d \
-     --network todo-app --network-alias mysql \
-     -v todo-mysql-data:/var/lib/mysql \
-     -e MYSQL_ROOT_PASSWORD=secret \
-     -e MYSQL_DATABASE=todos \
-     mysql:5.7
+$ docker exec -it ${containerId} /bin/sh
 ```
-
-* `-e MYSQL_ROOT_PASSWORD=secret` : root 계정의 비밀번호를 설정하는 명령어이다. 
-
-3. MySQL이 정상적으로 실행 중인지 확인하기 위해 컨테이너로 접속해보자. 이 명령어를 친 후 루트계정의 비밀번호를 입력한다.
 
 ```shell
-$ docker exec -it ${mysql-container-id} mysql -u root -p
+$ cat /data.txt
+9733
 ```
 
-컨테이너에 접속했다면 데이터베이스를 조회해보자.
-
-```mysql
-mysql> show databases;
-+--------------------+
-| Database           |
-+--------------------+
-| information_schema |
-| mysql              |
-| performance_schema |
-| sys                |
-| todos              |
-+--------------------+
-5 rows in set (0.01 sec)
-```
-
-
-
-MySQL이 정상적으로 실행 중이라는 것을 확인하였다. 이제는 todo-app을 띄워서 MySQL 컨테이너와 통신하는 방법을 알아보자. 통신하는 방법을 알아내기 위해 [nicolaka/netshoot](https://github.com/nicolaka/netshoot) 컨테이너를 사용할 것이다. 이 컨테이너는 네트워킹 이슈를 트러블슈팅 하거나 디버깅할 때 유용한 툴이다.
-
-1. nicolaka/netshoot 이미지를 사용하여 새로운 컨테이너를 실행시키자. 컨테이너를 실행시킬 때 이전에 만들었던 네트워크와 동일한 네트워크에 연결시켜야 한다.
+더 간단하게 컨테이너를 /bin/sh로 접속하지 않고 곧바로 명령어로 확인할 수도 있다.
 
 ```shell
-$ docker run -it --network todo-app nicolaka/netshoot
+$ docker exec ${containerId} cat /data.txt
 ```
 
-2. 컨테이너 내부에서 `dig` 명령어를 사용할 것이다. `dig` 명령어는 유용한 DNS 툴인데, 이 명령어를 사용하여 `mysql` 컨테이너의 hostname과 IP 주소를 알 수 있다.
+3. 같은 `ubuntu` 이미지를 사용하여 새로운 컨테이너를 생성해보자. 이 때 컨테이너를 생성할 때는 파일을 만들지 않고 생성 시 어떤 파일을 가지고있는지 확인하는 명령어를 사용함으로써 컨테이너가 이미지에 영향을 끼치는지 알아보자.
 
 ```shell
-$ dig mysql
+$ docker run -it ubuntu ls /
 
-; <<>> DiG 9.16.19 <<>> mysql
-;; global options: +cmd
-;; Got answer:
-;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 415
-;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0
-
-;; QUESTION SECTION:
-;mysql.				IN	A
-
-;; ANSWER SECTION:
-mysql.			600	IN	A	172.21.0.2
-
-;; Query time: 3 msec
-;; SERVER: 127.0.0.11#53(127.0.0.11)
-;; WHEN: Mon Sep 27 14:11:50 UTC 2021
-;; MSG SIZE  rcvd: 44
-
+bin   dev  home  lib64	mnt  proc  run	 srv  tmp  var
+boot  etc  lib	 media	opt  root  sbin  sys  usr
 ```
 
-* ANSWER SECTION 에서 mysql의 `A` 레코드를 확인할 수 있는데, 이 레코드에서 mysql의 `IP주소`(172.21.0.2) 를 알 수 있다. 
-* 여기서는 mysql 컨테이너의 hostname이 유효하지는 않지만, Docker는 해당 네트워크 별칭이 있는 컨테이너의 IP 주소로 이를 확인할 수 있다.
+* 1 에서 생성한 /data.txt 파일이 없다는 것이 확인된다. 
+
+
+
+## Container volumes
+
+위의 실습에서 각 컨테이너는 컨테이너가 시작할 때 이미지에 대한 내용으로부터 시작된다는 것을 확인하였다. 각 컨테이너는 파일을 추가하고, 수정하고 삭제할 수 있고, 각 컨테이너는 고립되어있기 때문에 컨테이너에서 파일에 대한 변경은 다른 컨테이너에게 영향을 끼치지 않는다. 
+
+`Volume` 은 컨테이너의 특정 파일 시스템 경로를 호스트 시스템에 다시 연결하는 기능을 제공한다. 컨테이너의 디렉터리가 마운트된다면 해당 디렉터리의 변경은 호스트 머신에 영향을 끼친다. 컨테이너를 시작할 때 특정 디렉터리를 마운트시킨다면 컨테이너들 끼리 파일을 공유할 수 있다.
+
+Docker에서 제공하는 Volume은 총 두 가지가 있다.
+
+
+
+### Persist the todo data
+
+기본적으로, todo 앱은 데이터를 컨테이너 파일 시스템인 `/ect/todos/todo.db` 에 SQLite database 에 저장한다. 데이터베이스가 단일 파일인 경우, 호스트에서 해당 파일을 유지하여 다음 컨테이너에서 사용할 수 있도록 하려면 마지막 파일이 중단된 부분을 복구할 수 있어야 한다. Volume을 생성하고 데이터가 저장될 디렉터리를 마운팅함으로써 컨테이너가 죽어도 데이터를 지속적으로 유지할 수 있다.
+
+호스트 머신에 데이터를 저장하기 위해서 먼저 `named volume` 을 사용할 수 있다. named volume을 간단히 데이터의 버킷으로 생각할 수 있다. Docker는 디스크의 물리적 위치를 유지하며 볼륨 이름만 기억하면 된다. 볼륨을 사용할 때 마다 Docker는 올바른 데이터가 제공되었는지 확인한다.
+
+1. `docker volume create` 명령어로 볼륨을 생성한다.
+
+```shell
+$ docker volume create todo-db
+```
+
+2. todo-app에서 볼륨을 사용하기 위해 todo app 컨테이너가 실행중이라면 컨테이너를 멈춘 후 컨테이너를 제거하자. 
+3. 볼륨 마운트를 지정하기 위해 `-v` 플래그를 이용하여 todo app 컨테이너를 실행시키자. 이렇게 하면 named volume을 사용할 것이고 볼륨이 `/etc/todos` 로 마운트된다.
+
+```shell
+$ docker run -dp 3000:3000 -v todo-db:/etc/todos getting-started
+```
+
+4. localhost:3000 으로 접속하여 데이터를 막 생성하자.
+
+![스크린샷 2021-09-26 오후 11 45 11](https://user-images.githubusercontent.com/35602698/134813058-6b0750d1-d164-4723-a5d0-7b746795c4a2.png)
+
+
+5. 컨테이너를 재시작하여 데이터가 유지되는지 확인하자. 아마 유지될 것이다.
+
+```shell
+$ docker rm -f ${containerId}
+$ docker run -dp 3000:3000 -v todo-db:/etc/todos getting-started
+```
+
+
+
+### volume 확인하기
+
+실제로 도커 볼륨이 어떻게 저장되는지 확인할 수 있는 명령어가 있다.
+
+```shell
+$ docker volume inspect todo-db
+
+[
+    {
+        "CreatedAt": "2021-09-26T14:44:47Z",
+        "Driver": "local",
+        "Labels": {},
+        "Mountpoint": "/var/lib/docker/volumes/todo-db/_data",
+        "Name": "todo-db",
+        "Options": {},
+        "Scope": "local"
+    }
+]
+```
+
+* Mountpoint 는 데이터가 저장되어있는 디스크의 실제 공간을 의미한다. 
+
+
+
