@@ -11,8 +11,8 @@
 
 
 이러한 이유 때문에 보통 웹 서버와 DB를 각각 다른 컨테이너로 관리하게 된다.
+![스크린샷 2021-09-27 오후 10 45 37](https://user-images.githubusercontent.com/35602698/134936843-dd1495ea-113c-4c0f-a2e3-6e752f27633d.png)
 
-![image-20210927224621442](/Users/yunseowon/Library/Application Support/typora-user-images/image-20210927224621442.png)
 
 그러면 컨테이너 끼리 통신을 할 수 있어야 하는데 Docker에서는 컨테이너 간 통신을 어떻게 지원하는지 알아보자.
 
