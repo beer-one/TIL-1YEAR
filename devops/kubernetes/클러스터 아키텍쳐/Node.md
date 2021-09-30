@@ -51,3 +51,40 @@ kubeadm을 설치했다면 컨트롤 플레인 노드를 초기화하는 방법�
 
 1. 하나의 컨트롤 플레인 kubeadm 클러스터를 고가용성으로 업그레이드 할 계획이 있다면 공유 엔드포인트를 설정하기 위해  모든 컨트롤 플레인 노드에 대해 `--control-plane-endpoint`를 지정해야 한다. 이러한 엔드포인트는 DNS 이름이나 로드밸런서의 IP 주소가 될 수 있다.
 2. 파드 네트워크 애드온을 선택하고 `kubeadm init` 명령어에 전달되는 인자가 필요한지 확인한다. 선택한 서드파티 프로바이더에 따라 `--pod-network-cidr` 을 프로바이더가 지정한 값으로 설정이 필요할 수도 있다.
+
+3. 버전 1.14부터 kubeadm은 잘 알려진 도메인 소켓 경로 리스트를 사용하여 리눅스에서의 런타임 컨테이너를 감지하려고 한다. 다른 컨테이너 런타임을 사용하거나 프로비저닝된 노드에 두 개 이상의 컨테이너가 설치된 경우 kubeadm init에 `--cri-socket` 인수를 지정한다. *(Optional)*
+
+4. 따로 지정하지 않는 한 kubeadm은 기본 게이트웨이와 연결된 네트워크 인터페이스를 사용하여 특정 컨트롤 플레인 노드의 API 서버에 대한 advertise address를 설정한다. 다른 네트워크 인터페이스를 사용하고 싶다면`kubeadm init`에  `--apiserver-advertise-address=<ip-address>` 를 인자로 지정하자. *(Optional)*
+
+5. gcr.io 컨테이너 이미지 레지스트리와의 연결을 확인하기 위해 `kubeadm init` 이전에 `kubeadm config images pull` 명령어를 사용하자. *(Optional)*
+
+   
+
+
+
+
+
+
+
+
+
+### 설치 트러블슈팅
+
+1. 스왑 지원 안함.
+
+```shell
+sudo kubeadm init
+ 
+[init] Using Kubernetes version: v1.22.2
+[preflight] Running pre-flight checks
+error execution phase preflight: [preflight] Some fatal errors occurred:
+	[ERROR Swap]: running with swap on is not supported. Please disable swap
+[preflight] If you know what you are doing, you can make a check non-fatal with `--ignore-preflight-errors=...`
+To see the stack trace of this error execute with --v=5 or higher
+```
+
+* k8s는 메모리 스왑을 고려하지 않고 설계했기 때문에 클러스터 노드로 사용할 서버 머신들은 모두 스왑메모리를 비활성화 해줘야 한다.
+* 비활성화 방법: `swapoff -a` `sed -i '2s/^/#/' /etc/fstab`
+
+
+
