@@ -198,6 +198,14 @@ $ curl http://localhost:8001/api/v1/namespaces/default/pods/$POD_NAME
 
 
 
+### 디플로이먼트 상세정보 보기
+
+```shell
+$ kubectl describe deployment
+```
+
+
+
 ## 파드와 노드
 
 ### 파드
@@ -384,6 +392,391 @@ Session Affinity:         None
 External Traffic Policy:  Cluster
 Events:                   <none>
 ```
+
+
+
+### 서비스를 통해 통신하기
+
+서비스를 생성하였으므로 컨테이너 기반 앱이 외부로 노출되었다. 앱이 외부에서도 통신이 가능한지 확인해보자. 먼저 NODE_PORT라는 환경변수를 만들다. NODE_PORT는 방금 만든 서비스가 노드와 연결되는 포트로 생각하면 된다. 외부에서 서비스와 통신하기 위해서는 NodePort를 통해 접근할 수 있다.
+
+```shell
+$ export NODE_PORT=$(kubectl get services/kubernetes-bootcamp -o go-template='{{(index .spec.ports 0).nodePort}}')
+$ echo NODE_PORT=$NODE_PORT
+```
+
+그리고 curl로 통신을 해보자.
+
+```shell
+curl $(minikube ip):$NODE_PORT
+
+Hello Kubernetes bootcamp! | Running on: kubernetes-bootcamp-fb5c67579-cmk6c | v=1
+```
+
+`minikube ip` 는 minikube의 node ip로 생각하면 된다.
+
+
+
+### 라벨 사용
+
+디플로이먼트는 파드를 위한 라벨을 자동으로 생성한다. 라벨 이름은 다음 명령어를 통해 알 수 있다. (Pod Template.Labels)
+
+```shell
+$ kubectl describe deployment
+
+Name:                   kubernetes-bootcamp
+Namespace:              default
+...
+Pod Template:
+  Labels:  app=kubernetes-bootcamp
+  Containers:
+   kubernetes-bootcamp:
+```
+
+
+
+`-l` 플래그를 통해 특정 라벨 값에 해당하는 파드나 서비스를 조회할 수 있다. 
+
+
+
+```shell
+$ kubectl get pods -l app=kubernetes-bootcamp
+NAME                                  READY   STATUS    RESTARTS   AGE
+kubernetes-bootcamp-fb5c67579-cmk6c   1/1     Running   0          29m
+```
+
+```shell
+$ kubectl get services -l app=kubernetes-bootcamp
+NAME                  TYPE       CLUSTER-IP      EXTERNAL-IP   PORT(S)          AGE
+kubernetes-bootcamp   NodePort   10.100.148.61   <none>        8080:30669/TCP   10m
+```
+
+
+
+### 라벨 추가
+
+라벨은 여러 개 가질 수 있다. 그래서 파드에 직접 라벨을 추가할 수 있다. 
+
+```shell
+$ kubectl label pods $POD_NAME version=v1
+```
+
+특정 파드에 `version=v1` 인 라벨을 추가하였다. 실제로 추가되었는지 확인하기 위해 describe 명령어를 사용하여 확인하자.
+
+```shell
+$ kubectl describe pods $POD_NAME
+Name:         kubernetes-bootcamp-fb5c67579-cmk6c
+Namespace:    default
+Priority:     0
+Node:         minikube/172.17.0.151
+Start Time:   Mon, 04 Oct 2021 09:01:46 +0000
+Labels:       app=kubernetes-bootcamp
+              pod-template-hash=fb5c67579
+              version=v1
+...
+```
+
+
+
+### 서비스 삭제
+
+서비스를 삭제할 수 있다. 아래 명령어는 특정 라벨에 해당하는 모든 서비스를 삭제하는 명령어이다.
+
+```shell
+$ kubectl delete service -l app=kubernetes-bootcamp
+
+service "kubernetes-bootcamp" deleted
+```
+
+서비스가 삭제되었는지 확인하기 위해 직접 통신해보자. connection refused가 나온거로 봐서 외부와 통신이 되지않는 것을 확인하였다.
+
+```shell
+$ curl $(minikube ip):$NODE_PORT
+curl: (7) Failed to connect to 172.17.0.151 port 30669: Connection refused
+```
+
+
+
+하지만 서비스를 삭제한다고 파드가 삭제되지는 않는다. 파드를 실행해보면 알 수 있다.
+
+```shell
+$ kubectl exec -ti $POD_NAME -- curl localhost:8080
+
+Hello Kubernetes bootcamp! | Running on: kubernetes-bootcamp-fb5c67579-cmk6c | v=1
+```
+
+
+
+
+
+
+
+## 스케일링
+
+디플로이먼트를 스케일 아웃하면 새로운 파드가 생성되어 가용한 자원이 있는 노드에 스케쥴된다. 스케일링 기능은 의도한 상태까지 파드의 수를 늘린다. 심지어 0개의 스케일링도 지원하는데 0개로 설정하면 모든 파드들이 종료된다.
+
+애플리케이션의 인스턴스를 여러개 구동하게 되면 트래픽을 여러 애플리케이션에 분산시킬 방법이 필요한데 이는 서비스가 담당한다. 서비스는 노출된 디플로이먼트의 모든 파드에 트래픽을 분산시켜줄 로드밸런서를 갖는다. 서비스는 엔드포인트를 이용하여 파드를 지속적으로 모니터링하여 사용 가능한 파드에만 트래픽이 전달되도록 관리한다.
+
+
+
+### 스케일링 설정
+
+먼저 디플로이먼트를 조회해보자.
+
+```shell 
+$ kubectl get deployments
+NAME                  READY   UP-TO-DATE   AVAILABLE   AGE
+kubernetes-bootcamp   1/1     1            1           99s
+```
+
+* READY는 현재/목표 레플리카 비율를 보여준다.
+
+* UP-TO-DATE는 최근에 생성된 레플리카 수를 의미한다.
+
+* AVAILABLE은 애플리케이션이 사용 가능한 레플리카의 수를 보여준다.
+* AGE는 애플리케이션 실행시간을 의미한다.
+
+
+
+그리고 레플리카셋을 조회해보자.
+
+```shell
+$ kubectl get rs
+NAME                            DESIRED   CURRENT   READY   AGE
+kubernetes-bootcamp-fb5c67579   1         1         1       5m22s
+```
+
+* 레플리카셋 이름은 항상 `[DEPLOYMENT-NAME]-[RANDOM_STRING]` 으로 명명된다. 
+
+* DESIRED는 목표 레플리카셋 개수이다.
+* CURRENT는 현재 실행 중인 레플리카셋 개수이다.
+
+
+
+이제 스케일링을 적용시켜보자. 디플로이먼트의 DESIRED 개수를 4개로 늘려서 스케일아웃을 해보자.
+
+```shell
+$ kubectl scale deployments/kubernetes-bootcamp --replicas=4
+```
+
+스케일아웃 되었는지 확인해보자.
+
+```shell
+$ kubectl get deployments
+NAME                  READY   UP-TO-DATE   AVAILABLE   AGE
+kubernetes-bootcamp   4/4     4            4           18m
+```
+
+
+
+파드가 늘었는지 확인하기 위해 파드를 조회해보자. 여기서 AGE를 보면 최근에 늘어난 파드도 알 수 있다.
+
+```shell
+$ kubectl get pods -o wide
+NAME                                  READY   STATUS    RESTARTS   AGE    IP           NODE       NOMINATED NODE   READINESS GATES
+kubernetes-bootcamp-fb5c67579-292fq   1/1     Running   0          18m    172.18.0.4   minikube   <none>           <none>
+kubernetes-bootcamp-fb5c67579-45lg8   1/1     Running   0          114s   172.18.0.7   minikube   <none>           <none>
+kubernetes-bootcamp-fb5c67579-bcppt   1/1     Running   0          114s   172.18.0.8   minikube   <none>           <none>
+kubernetes-bootcamp-fb5c67579-qmz8c   1/1     Running   0          114s   172.18.0.9   minikube   <none>           <none>
+```
+
+
+
+### 로드밸런싱 확인
+
+서비스가 로드밸런싱을 하고있는지 확인해보자. 먼저 서비스의 상세정보를 확인하여 NODE_PORT를 알자. 그리고 실제로 통신을 해보자.
+
+```shell
+$ export NODE_PORT=$(kubectl get services/kubernetes-bootcamp -o go-template='{{(index .spec.ports 0).nodePort}}')
+
+$ curl $(minikube ip):$NODE_PORT
+Hello Kubernetes bootcamp! | Running on: kubernetes-bootcamp-fb5c67579-bcppt | v=1
+$ curl $(minikube ip):$NODE_PORT
+Hello Kubernetes bootcamp! | Running on: kubernetes-bootcamp-fb5c67579-45lg8 | v=1
+```
+
+통신 결과를 보면 매 통신마다 다른 파드로 요청이 간 것을 확인할 수 있다.
+
+
+
+### 스케일 다운
+
+scale 명령어로 레플리카 수를 줄일 수도 있다. 동일한 여러 애플리케이션의 수를 줄이는 것을 **스케일 다운** 이라고 한다.
+
+```shell 
+$ kubectl scale deployments/kubernetes-bootcamp --replicas=2
+deployment.apps/kubernetes-bootcamp scaled
+```
+
+레플리카 셋을 4개에서 2개로 줄였다. 실제로 줄여진 것을 확인하기 위해 pod를 조회해보자.
+
+```shell
+$ kubectl get pods -o wide
+NAME                                  READY   STATUS        RESTARTS   AGE     IP           NODE       NOMINATED NODE   READINESS GATES
+kubernetes-bootcamp-fb5c67579-292fq   1/1     Running       0          25m     172.18.0.4   minikube   <none>           <none>
+kubernetes-bootcamp-fb5c67579-45lg8   0/1     Terminating   0          8m23s   172.18.0.7   minikube   <none>           <none>
+kubernetes-bootcamp-fb5c67579-qmz8c   1/1     Running       0          8m23s   172.18.0.9   minikube   <none>           <none>
+```
+
+현재는 3개의 파드가 조회되었는데 하나는 Terminating 상태이다. 레플리카셋을 줄인다고 해서 바로 줄여지지는 않고 하나씩 줄이는 걸로 보인다.
+
+
+
+## 롤링 업데이트
+
+롤링 업데이트는 파드 인스턴스를 점진적으로 새로운 버전으로 업데이트하여 서비스 중단 없이 애플리케이션을 업데이트 할 수 있도록 해준다. 새로 업데이트된 파드는 가용한 자원을 보유한 노드로 새롭게 스케줄링 될 것이다.
+
+쿠버네티스에서 업데이트는 버전으로 관리되며 이전의 버전으로도 롤백이 가능하다.
+
+롤링업데이트는 아래 동작을 허용해준다.
+
+* 하나의 환경에서 다른 환경으로의 애플리케이션 프로모션
+* 이전 버전으로 롤백
+* 서비스 중단 없이 애플리케이션의 지속적인 통합과 업데이트
+
+
+
+### 롤링 업데이트 하기
+
+먼저 디플로이먼트를 조회해서 롤링 업데이트할 디플로이먼트를 선택하자.
+
+```shell
+$ kubectl get deployments
+NAME                  READY   UP-TO-DATE   AVAILABLE   AGE
+kubernetes-bootcamp   4/4     4            4           3m34s
+```
+
+그리고 파드의 버전을 확인해보자.
+
+```shell
+$ kubectl describe pods
+
+Name:         kubernetes-bootcamp-fb5c67579-5kvj9
+Namespace:    default
+...
+Containers:
+  kubernetes-bootcamp:
+    Container ID:   docker://a6d6bea16b75bc40812d6bc203a1ee6c35cda743acf04d3c93eafaa5dfc80a82
+    Image:          gcr.io/google-samples/kubernetes-bootcamp:v1
+    Image ID:       docker-pullable://jocatalin/kubernetes-bootcamp@sha256:0d6b8ee63bb57c5f5b6156f446b3bc3b3c143d233037f3a2f00e279c8fcc64af
+...
+```
+
+Container Image를 보면 v1 임을 알 수 있다. 이제 이미지의 버전을 v2로 변경해보자.
+
+```shell
+$ kubectl set image deployments/kubernetes-bootcamp kubernetes-bootcamp=jocatalin/kubernetes-bootcamp:v2
+deployment.apps/kubernetes-bootcamp image updated
+```
+
+롤링 업데이트 후 파드의 상태를 알기 위해 파드를 조회해보자.
+
+```shell
+$ kubectl get pods
+NAME                                   READY   STATUS              RESTARTS   AGE
+kubernetes-bootcamp-7d44784b7c-m42tv   1/1     Running             0          14s
+kubernetes-bootcamp-7d44784b7c-mjgvr   0/1     ContainerCreating   0          4s
+kubernetes-bootcamp-7d44784b7c-mjpw8   1/1     Running             0          15s
+kubernetes-bootcamp-7d44784b7c-qzzhh   0/1     ContainerCreating   0          6s
+kubernetes-bootcamp-fb5c67579-5kvj9    1/1     Terminating         0          7m36s
+kubernetes-bootcamp-fb5c67579-htww6    1/1     Terminating         0          7m36s
+kubernetes-bootcamp-fb5c67579-jdvrf    1/1     Running             0          7m36s
+kubernetes-bootcamp-fb5c67579-mppkd    1/1     Terminating         0          7m36s
+```
+
+* Terminating 상태의 파드도 있는데 이는 롤링 업데이트를 하기위해(새로운 버전으로 업데이트) 컨테이너가 종료된 파드이다.
+* ContainerCreating 상태의 파드는 새로운 버전으로 업데이트하여 띄워지고 있는 파드이다.
+* Running은 이미 완료된 파드 또는 아직 업데이트 되지 않은 파드인데 이는 AGE를 보면 짐작할 수 있다.
+
+
+
+업데이트가 완료되었는지 확인하기 위해 직접 통신해보자. v=2로 내용이 업데이트되었다.
+
+```shell
+$ curl $(minikube ip):$NODE_PORT
+Hello Kubernetes bootcamp! | Running on: kubernetes-bootcamp-7d44784b7c-mjgvr | v=2
+```
+
+
+
+### 롤아웃 확인
+
+디플로이먼트가 성공적으로 롤아웃 되었는지 확인하는 명령어도 있다.
+
+```shell
+$ kubectl rollout status deployments/kubernetes-bootcamp
+deployment "kubernetes-bootcamp" successfully rolled out
+```
+
+
+
+### 롤백
+
+일단 이미지를 설정하자. (v10으로 재설정)
+
+```shell
+$ kubectl set image deployments/kubernetes-bootcamp kubernetes-bootcamp=gcr.io/google-samples/kubernetes-bootcamp:v10
+deployment.apps/kubernetes-bootcamp image updated
+```
+
+그 후 디플로이먼트를 조회해보면 Desired와 Available의 수가 달라짐을 알 수 있다.
+
+```shell
+$ kubectl get deployments
+NAME                  READY   UP-TO-DATE   AVAILABLE   AGE
+kubernetes-bootcamp   3/4     2            3           13m
+```
+
+파드의 상태를 확인하기 위해 파드를 조회해보자. (일정 시간이 지나고 조회.)
+
+```shell
+$ kubectl get pods
+NAME                                   READY   STATUS             RESTARTS   AGE
+kubernetes-bootcamp-59b7598c77-kd7pc   0/1     ImagePullBackOff   0          55s
+kubernetes-bootcamp-59b7598c77-l6p2l   0/1     ImagePullBackOff   0          58s
+kubernetes-bootcamp-7d44784b7c-m42tv   1/1     Running            0          5m59s
+kubernetes-bootcamp-7d44784b7c-mjpw8   1/1     Running            0          6m
+kubernetes-bootcamp-7d44784b7c-qzzhh   1/1     Running            0          5m51s
+```
+
+일정 시간이 지나고 난 후 조회하면 특정 파드의 상태가 `ImagePullBackOff` 로 나타난다. 상세 정보를 확인하기 위해 describe 명령어로 확인해보자.
+
+```shell
+$ kubectl describe pods kubernetes-bootcamp-59b7598c77-kd7pc
+Name:         kubernetes-bootcamp-59b7598c77-kd7pc
+Namespace:    default
+...
+Events:
+  Type     Reason     Age                   From               Message
+  ----     ------     ----                  ----               -------
+  Normal   Scheduled  3m20s                 default-scheduler  Successfully assigned default/kubernetes-bootcamp-59b7598c77-kd7pc to minikube
+  Normal   Pulling    108s (x4 over 3m11s)  kubelet            Pulling image "gcr.io/google-samples/kubernetes-bootcamp:v10"
+  Warning  Failed     108s (x4 over 3m10s)  kubelet            Failed to pull image "gcr.io/google-samples/kubernetes-bootcamp:v10": rpc error: code = Unknown desc = Error response from daemon: manifest for gcr.io/google-samples/kubernetes-bootcamp:v10 not found: manifest unknown: Failed to fetch "v10" from request "/v2/google-samples/kubernetes-bootcamp/manifests/v10".
+  Warning  Failed     108s (x4 over 3m10s)  kubelet            Error: ErrImagePull
+  Normal   BackOff    95s (x6 over 3m9s)    kubelet            Back-off pulling image "gcr.io/google-samples/kubernetes-bootcamp:v10"
+  Warning  Failed     82s (x7 over 3m9s)    kubelet            Error: ImagePullBackOff
+```
+
+Event 섹션에서 에러 상세가 나오는데 여기서 v10은 레포지토리에 존재하지 않아 이미지 풀을 할 수 없다는 에러가 발생했음을 알 수 있다.
+
+이전 버전으로 디플로이먼트를 롤백 시켜보자.
+
+```shell
+$ kubectl rollout undo deployments/kubernetes-bootcamp
+deployment.apps/kubernetes-bootcamp rolled back
+```
+
+롤백이 되었는지, 파드가 정상적으로 띄워졌는지 확인하자.
+
+```shell
+$ kubectl get pods
+NAME                                   READY   STATUS    RESTARTS   AGE
+kubernetes-bootcamp-7d44784b7c-m42tv   1/1     Running   0          10m
+kubernetes-bootcamp-7d44784b7c-mjpw8   1/1     Running   0          10m
+kubernetes-bootcamp-7d44784b7c-nmbvr   1/1     Running   0          48s
+kubernetes-bootcamp-7d44784b7c-qzzhh   1/1     Running   0          10m
+```
+
+
 
 
 
