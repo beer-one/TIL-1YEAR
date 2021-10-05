@@ -45,24 +45,175 @@ $ sudo apt-mark hold kubelet kubeadm kubectl
 
 
 
+
+
+### 도커 설치 (컨테이너 런타임)
+
+도커를 설치하는 방법은 아래와 같다. 노드를 초기화하기 전에 설치해야 한다.
+
+```shell
+$ sudo add-apt-repository \
+"deb [arch=amd64] https://download.docker.com/linux/ubuntu \
+$(lsb_release -cs) \
+stable"
+$ sudo apt-get update && sudo apt-get install docker-ce docker-ce-cli containerd.io -y
+$ sudo systemctl enable docker && sudo service docker start
+```
+
+도커를 설치했다면 컨테이너의 cgroup 관리에 systemd를 사용하도록 도커 데몬을 구성한다.
+
+```shell
+$ sudo mkdir /etc/docker
+$ cat <<EOF | sudo tee /etc/docker/daemon.json
+{
+  "exec-opts": ["native.cgroupdriver=systemd"],
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "100m"
+  },
+  "storage-driver": "overlay2"
+}
+EOF
+```
+
+그 후 도커를 재시작한다.
+
+```shell
+$ sudo systemctl enable docker
+$ sudo systemctl daemon-reload
+$ sudo systemctl restart docker
+```
+
+
+
+
+
 ### 컨트롤 플레인 노드 초기화
 
 kubeadm을 설치했다면 컨트롤 플레인 노드를 초기화하는 방법을 알아보자.
 
 1. 하나의 컨트롤 플레인 kubeadm 클러스터를 고가용성으로 업그레이드 할 계획이 있다면 공유 엔드포인트를 설정하기 위해  모든 컨트롤 플레인 노드에 대해 `--control-plane-endpoint`를 지정해야 한다. 이러한 엔드포인트는 DNS 이름이나 로드밸런서의 IP 주소가 될 수 있다.
 2. 파드 네트워크 애드온을 선택하고 `kubeadm init` 명령어에 전달되는 인자가 필요한지 확인한다. 선택한 서드파티 프로바이더에 따라 `--pod-network-cidr` 을 프로바이더가 지정한 값으로 설정이 필요할 수도 있다.
-
 3. 버전 1.14부터 kubeadm은 잘 알려진 도메인 소켓 경로 리스트를 사용하여 리눅스에서의 런타임 컨테이너를 감지하려고 한다. 다른 컨테이너 런타임을 사용하거나 프로비저닝된 노드에 두 개 이상의 컨테이너가 설치된 경우 kubeadm init에 `--cri-socket` 인수를 지정한다. *(Optional)*
-
 4. 따로 지정하지 않는 한 kubeadm은 기본 게이트웨이와 연결된 네트워크 인터페이스를 사용하여 특정 컨트롤 플레인 노드의 API 서버에 대한 advertise address를 설정한다. 다른 네트워크 인터페이스를 사용하고 싶다면`kubeadm init`에  `--apiserver-advertise-address=<ip-address>` 를 인자로 지정하자. *(Optional)*
-
 5. gcr.io 컨테이너 이미지 레지스트리와의 연결을 확인하기 위해 `kubeadm init` 이전에 `kubeadm config images pull` 명령어를 사용하자. *(Optional)*
 
-   
+
+
+간단하게 컨트롤플레인 노드를 생성하는 방법은 init만 하면 된다.
+
+```shell
+$ sudo kubeadm init
+```
+
+그럼 아래와 같은 문구가 뜬다.
+
+```shell
+Your Kubernetes control-plane has initialized successfully!
+
+To start using your cluster, you need to run the following as a regular user:
+
+  mkdir -p $HOME/.kube
+  sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+  sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+You should now deploy a Pod network to the cluster.
+Run "kubectl apply -f [podnetwork].yaml" with one of the options listed at:
+  /docs/concepts/cluster-administration/addons/
+
+You can now join any number of machines by running the following on each node
+as root:
+
+  kubeadm join <control-plane-host>:<control-plane-port> --token <token> --discovery-token-ca-cert-hash sha256:<hash>
+```
+
+일단 시키는대로 다음 명령어를 사용하자.
+
+```shell
+$ mkdir -p $HOME/.kube
+$ sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+$ sudo chown $(id -u):$(id -g) $HOME/.kube/config
+```
+
+그리고 파드 네트워크를 꾸릴 [CNCF](https://kubernetes.io/ko/docs/concepts/cluster-administration/addons/)를 하나 선택해서 적용시키자. 일단 [flannel](https://github.com/flannel-io/flannel#deploying-flannel-manually) 을 선택하여 적용시켜보겠다.
+
+```shell
+$ kubectl apply -f [podnetwork].yaml
+$ kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+```
+
+ 
+
+그리고 마지막 명령어는 k8s 워커 노드를 컨트롤 플레인 노드에 조인하기 위해 `token`, `discovery-token-ca-cert-hash` 를 사용하는데, 나중에 노드들을 조인하려면 이 값을 기억하고 있어야 한다.
+
+![스크린샷 2021-10-05 오후 7.00.36](/Users/nhn/Desktop/스크린샷 2021-10-05 오후 7.00.36.png)
+
+물론 토큰을 조회할 수도 있다.
+
+```shell
+$ kubeadm token list
+```
+
+
+
+그리고 해당 파일로 클러스터 정보를 볼 수 있는데 루트계정만 볼 수 있다.
+
+```shell
+$ sudo vi /etc/kubernetes/admin.conf
+```
+
+그리고 `discovery-token-ca-cert-hash` 를 조회하려면 아래 명령어를 입력하면 된다.
+
+```shell
+$ openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt | openssl rsa -pubin -outform der 2>/dev/null | \
+   openssl dgst -sha256 -hex | sed 's/^.* //'
+```
+
+
+
+### Control plan node isolation
+
+기본적으로, 클러스터는 보안상의 이유로 컨트롤 플레인 노드에 파드를 스케줄링 하지 않는다. 만약 컨트롤 플레인 노드에 파드를 스케줄링 하고 싶다면 다음 명령어를 실행하면 된다.
+
+```shell
+$ kubectl taint nodes --all node-role.kubernetes.io/master-
+```
+
+
+
+### 노드 조인
+
+노드는 워크로드가 실행되는 곳이다. 클러스터에 새 노드를 조인하려면 각 머신에 대해 다음을 수행해야 한다.
+
+* SSH
+
+* 루트계정으로 (`sudo su -`)
+
+* 필요하다면 컨테이너 런타임 설치
+
+* Kubeadm init에서 출력된 명령 실행
+
+  ```shell
+  kubeadm join <control-plane-host>:<control-plane-port> --token <token> --discovery-token-ca-cert-hash sha256:<hash>
+  ```
+
+  
 
 
 
 
+
+### apiserver-advertise-address, ControlPlaneEndpoint
+
+`--apiserver-advertise-address` 플래그는 특정 컨트롤 플래인 노드의 API server로 advertise address를 설정하기 위해 사용될 수 있고 `--control-plane-endpoint` 플래그는 모든 컨트롤 플레인 노드에 대해 공유 엔드포인트를 설정하기 위해 사용될 수 있다.
+
+`--control-plane-endpoint` 플래그는 IP주소에 매핑할 수 있는 IP 주소와 DNS 이름 모두 허용한다. 매핑 예시는 다음과 같다.
+
+```
+192.168.0.102 cluster-endpoint
+```
+
+`192.168.0.102` 는 노드의 IP주소이고 `cluster-endpoint` 는 IP와 매핑되는 커스텀 DNS 이름이다. 
 
 
 
@@ -84,7 +235,26 @@ To see the stack trace of this error execute with --v=5 or higher
 ```
 
 * k8s는 메모리 스왑을 고려하지 않고 설계했기 때문에 클러스터 노드로 사용할 서버 머신들은 모두 스왑메모리를 비활성화 해줘야 한다.
-* 비활성화 방법: `swapoff -a` `sed -i '2s/^/#/' /etc/fstab`
+
+* 비활성화 방법:
+
+  ```shell
+  $ sudo swapoff -a
+  $ sudo sed -i 'swap/d' /etc/fstab
+  ```
 
 
+
+2. Preflight error
+
+kubeadm init을 한 후 어떠한 이유로 실패하고 다시 init을 하면 포트 사용중이라고 에러가 뜰 때가 있는데 이는 이전에 실패했을 때 preflight 과정에서 특정 프로세스가 띄워진 상태이고, 실패할 때 프로세스 정리를 하지 않기 때문이다.
+
+![image-20211005172432786](/Users/nhn/Library/Application Support/typora-user-images/image-20211005172432786.png)
+
+이런 경우 kubeadm을 리셋한 후 다시 시작하면 된다.
+
+```shell
+$ sudo kubeadm reset
+$ sudo kubeadm init
+```
 
