@@ -146,7 +146,14 @@ $ kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Docum
 
 그리고 마지막 명령어는 k8s 워커 노드를 컨트롤 플레인 노드에 조인하기 위해 `token`, `discovery-token-ca-cert-hash` 를 사용하는데, 나중에 노드들을 조인하려면 이 값을 기억하고 있어야 한다.
 
-![스크린샷 2021-10-05 오후 7.00.36](/Users/nhn/Desktop/스크린샷 2021-10-05 오후 7.00.36.png)
+```shell
+You can now join any number of machines by running the following on each node
+as root:
+
+  kubeadm join <control-plane-host>:<control-plane-port> --token <token> --discovery-token-ca-cert-hash sha256:<hash>
+```
+
+
 
 물론 토큰을 조회할 수도 있다.
 
@@ -168,6 +175,16 @@ $ sudo vi /etc/kubernetes/admin.conf
 $ openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt | openssl rsa -pubin -outform der 2>/dev/null | \
    openssl dgst -sha256 -hex | sed 's/^.* //'
 ```
+
+
+
+그런데 토큰은 24시간이 지나면 만료된다. 그래서 추가로 노드를 조인할 일이 생긴다면 토큰을 별도로 생성해야 한다.
+
+```shell
+$ kubeadm token create
+```
+
+
 
 
 
@@ -194,10 +211,32 @@ $ kubectl taint nodes --all node-role.kubernetes.io/master-
 * Kubeadm init에서 출력된 명령 실행
 
   ```shell
-  kubeadm join <control-plane-host>:<control-plane-port> --token <token> --discovery-token-ca-cert-hash sha256:<hash>
+  $ kubeadm join <control-plane-host>:<control-plane-port> --token <token> --discovery-token-ca-cert-hash sha256:<hash>
   ```
 
-  
+
+
+
+조인에 성공하면 다음과 같이 출력될 것이다.
+
+```shell
+This node has joined the cluster:
+* Certificate signing request was sent to apiserver and a response was received.
+* The Kubelet was informed of the new secure connection details.
+
+Run 'kubectl get nodes' on the control-plane to see this node join the cluster.
+```
+
+
+
+컨트롤 플레인 노드에서 노드 조회 명령어를 입력하면 조인한 노드도 같이 조회될 것이다.
+
+```shell
+kube-cp:~$ kubectl get nodes
+NAME         STATUS   ROLES                  AGE   VERSION
+kube-cp      Ready    control-plane,master   37m   v1.22.2
+kube-node1   Ready    <none>                 44s   v1.22.2
+```
 
 
 
@@ -214,6 +253,83 @@ $ kubectl taint nodes --all node-role.kubernetes.io/master-
 ```
 
 `192.168.0.102` 는 노드의 IP주소이고 `cluster-endpoint` 는 IP와 매핑되는 커스텀 DNS 이름이다. 
+
+
+
+
+
+### 컨트롤 플레인 노드가 아닌 다른 머신에서 클러스터를 제어하는 방법
+
+클러스터가 아닌 다른 머신에서 클러스터를 제어하기 위해서는 컨트롤 플레인 노드에 있는 `administrator kubeconfig` 파일을 클러스터를 제어하려는 다른 머신에 복사하는 것이 필요하다.
+
+```shell
+$ scp root@<control-plane-host>:/etc/kubernetes/admin.conf .
+kubectl --kubeconfig ./admin.conf get nodes
+```
+
+
+
+
+
+## 클러스터 제거
+
+클러스터에 일회용 서버를 사용한 경우, 테스트를 위해 서버를 끄고 자원을 정리하지 않을 수 있다. `kubectl config delete-cluster` 명령어를 사용하여 클러스터에 대한 로컬 참조를 삭제할 수 있다.
+
+그러나, 클러스터를 조금 더 깨끗하게 프로비저닝을 해지하려면 먼저 노드를 drain하고 노드가 비어있는지 확인한 후 노드 구성을 해제해야 한다.
+
+### 노드 제거
+
+먼저 **컨트롤 플레인 노드**에서 다음 명령어를 실행한다. 
+
+```shell
+$ kubectl drain <node name> --delete-emptydir-data --force --ignore-daemonsets
+```
+
+Drain 되는 노드는 스케줄링이 허용되지 않는다.
+
+```shell
+$ kubectl get nodes
+NAME         STATUS                     ROLES                  AGE   VERSION
+kube-cp      Ready                      control-plane,master   79m   v1.22.2
+kube-node1   Ready,SchedulingDisabled   <none>                 42m   v1.22.2
+```
+
+
+
+노드를 지우기 전에 **대상 노드**에서 kubeadm을 리셋한다.
+
+```shell
+$ kubeadm reset
+```
+
+reset 프로세스는 iptable rule 또는 IPVS 테이블을 리셋하거나 정리하지 않는다. iptable을 정리하고 싶다면 다음 명령어를 입력하자.
+
+```shell
+$ iptables -F && iptables -t nat -F && iptables -t mangle -F && iptables -X
+```
+
+IPVS 테이블을 리셋하고 싶다면 아래 명령어를 입력하자.
+
+```shell
+ipvsadm -C
+```
+
+reset이 완료되었다면 **컨트롤 플레인 노드** 에서 대상 노드를 삭제하자.
+
+```shell
+$ kubectl delete node <node name>
+```
+
+
+
+### 컨트롤 플레인 노드 제거
+
+컨트롤 플레인 노드를 제거하는 방법은 일단 모든 노드를 제거 한 후 컨트롤 플레인에서 kubeadm을 리셋하면 된다.
+
+```shell
+$ kubeadm reset
+$ rm -rf ~/.kube
+```
 
 
 
@@ -240,7 +356,7 @@ To see the stack trace of this error execute with --v=5 or higher
 
   ```shell
   $ sudo swapoff -a
-  $ sudo sed -i 'swap/d' /etc/fstab
+  $ sudo sed -i '/swap/d' /etc/fstab
   ```
 
 
