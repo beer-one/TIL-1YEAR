@@ -75,13 +75,29 @@ K8s를 배포하면 클러스터를 얻는다. K8s 클러스터는 컨테이너�
 
 kubectl은 K8s 클러스터에 대해 명령을 실행할 수 있는 CLI 도구이다. kubectl을 사용하여 애플리케이션을 배포하고, 클러스터 리소스를 검사하고 관리하며 로그를 볼 수 있다. 
 
-### 설치 (ubuntu)
-
 
 
 ## kubeadm
 
 kubeadm을 사용하여 K8s 클러스터를 만들고 관리할 수 있다. kubeadm을 설치해야만 클러스터 생성이 가능하다.
+
+
+
+
+
+## kubelet
+
+kubelet은 각 노드에서 실행되는 기본 **node agent** 이다. 호스트이름, 호스트 이름을 재정의하는 플래그 또는 cloud provider의 특정 논리 중 하나를 사용하여 노드를 apiserver에 등록할 수 있다. 
+
+kubelet은 **PodSpec** 의 측면에서 작동한다. PodSpec은 Yaml 또는 Json 형식이며, 파드를 설명한다. kubelet은 다양한 메커니즘을 통해 제공되는 일련의 PodSpec을 가지고 이러한 PodSpec으로 설명된 컨테이너가 건강하게 실행되는지 확인한다. kubelet은 Kubernetes에 의해 생성되지 않은 컨테이너는 관리하지 않는다.
+
+apiserver의 PodSpec을 사용하는 것 외에도 Container manifest를 kubelet에 제공할 수 있는 3가지 방법이 있다.
+
+* File: 명령어에서 플래그로 전달된 경로이며, 해당 경로 아래 파일은 업데이트를 위해 주기적으로 모니터링한다. 모니터링 주기는 기본적으로 20초이며, flag를 통해 변경할 수 있다.
+* HTTP endpoint: 명령어에서 파라미터로 전달된 HTTP endpoint이며, 이 endpoint는 매 20초 마다 확인된다.
+* HTTP server: kubelet은 HTTP를 듣고 간단한 API에 응답하여 세로운 명세를 제출할 수 있다.
+
+ 
 
 
 
