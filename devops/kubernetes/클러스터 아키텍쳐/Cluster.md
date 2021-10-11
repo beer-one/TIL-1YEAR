@@ -45,10 +45,6 @@ $ sudo apt-mark hold kubelet kubeadm kubectl
 
 
 
-### cgroup driver
-
-
-
 
 
 ### 도커 설치 (컨테이너 런타임)
@@ -56,6 +52,8 @@ $ sudo apt-mark hold kubelet kubeadm kubectl
 도커를 설치하는 방법은 아래와 같다. 노드를 초기화하기 전에 설치해야 한다.
 
 ```shell
+$ sudo apt update
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
 $ sudo add-apt-repository \
 "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
 $(lsb_release -cs) \
