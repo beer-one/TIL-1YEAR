@@ -249,6 +249,145 @@ spec:
 
 
 
+## Traffic Policies
+
+<일단 생략>
+
+
+
+## 서비스 디스커버리
+
+<일단 생략>
+
+
+
+## Headless Services
+
+가끔 로드밸런싱과 단일 서비스 IP가 필요없는 경우도 있다. 이 경우에는, `.spec.clsterIP` 속성을 `None`으로 명시함으로써 **headless** 서비스라고 불리는 서비스를 생성할 수 있다.  headless 서비스를 K8s 구현체에 얽메이지 않고 다른 서비스 디스커버리 메커니즘과 함께 인터페이스로 사용할 수 있다.
+
+Headless 서비스에 대해, cluster IP는 할당되지 않고 kube-proxy는 해당 서비스를 다루지 않는다. 그리고 플랫폼에서 수행하는 로드밸런싱이나 프록시가 없다. DNS 자동 구성 방법은 서비스에 셀렉터가 정의되어있는지 여부에 따라 달라진다.
+
+
+
+### 셀렉터가 있을 때
+
+셀렉터가 정의되어있는 headless 서비스에 대해, 엔드포인트 컨트롤러는 API 내부에서 `Endpoint` 레코드를 생성하고 서비스를 지원하는 파드를 직접 가리키는 A 레코드*(IP address)*를 반환하기 위한 DNS 설정을 변경한다.
+
+
+
+### 셀렉터가 없을 때
+
+셀렉터를 지정하지 않은 headless 서비스에 대해, 엔드포인트 컨트롤러는 `Endpoint` 레코드를 생성하지 않는다. 그러나 DNS 시스템은 다음 중 하나를 찾고 구성한다.
+
+* ExternalName 타입 서비스에 대한 CNAME 레코드
+* 서비스와 이름을 공유하는 모든 `Endpoint` 에 대한 레코드
+
+
+
+## 서비스 퍼블리싱 (ServiceTypes)
+
+애플리케이션 일부분에 대해서는 서비스를 클러스터 외부로 노출시켜야 할 수 있다. 쿠버네티스 `ServiceTypes` 은 원하는 서비스 종류를 지정하는 것을 허용한다. *(default: ClusterIP)* 타입의 종류는 아래와 같다.
+
+* **ClusterIP** *(default)*: 서비스를 클러스터 내부 IP로 노출시킨다. 이 값을 선택하는 것은 오직 클러스터 내부로만 접근 가능하도록 하기 위해서이다.
+* **NodePort**: 서비스를 각 노드의 IP에 정적 포트로 노출시킨다. NodePort 서비스가 라우팅하는 ClusterIP 서비스가 자동으로 생성된다. 이 서비스는 `<NodeIP>:<NodePort>` 로 요청함으로써 클러스터 외부로부터 서비스와 통신할 수 있다.
+* **LoadBalancer**: 클라우드 제공자의 로드 밸런서를 사용하여 서비스를 외부에 노출시킨다. 외부 로드밸런서가 라우팅되는 `NodePort`와 `ClusterIP` 서비스가 자동으로 생성된다.
+* **ExternalName**: `externalName` 값과 함께 `CNAME` 레코드를 반환함으로써 서비스와 `externalName` 필드 컨텐츠를 매핑한다. 어떠한 프록시도 설정되지 않는다.
+
+
+
+또한 `Ingress`를 사용하여 서비스를 외부로 노출시킬 수 있다. Ingress는 서비스 타입은 아니지만 클러스터의 엔트리 포인트로써 역할을 한다. 여러 서비스를 동일한 IP 주소로 노출시킬 수 있으므로 라우팅 규칙을 단일 리소스로 통합할 수 있다.
+
+
+
+### Type NodePort
+
+`type` 필드를 `NodePort`로 설정한 경우, 쿠버네티스 컨트롤 플레인은 `--service-node-port-range` 플래그 *(default=30000-32767)* 에 지정된 범위 내 포트번호를 할당한다. 각 노드는 해당 포트를 서비스에 프록시한다. 해당 서비스는 할당된 포트를 `.spec.ports[*].nodePort` 필드에 기록한다.
+
+포트를 프록시할 특정 IP를 지정하려면 kube-proxy에 대한 `--nodeport-addresses` 플래그 또는 kube-proxy 구성 파일의 `nodePortAddresses` 필드를 특정 IP 블록으로 설정할 수 있다. 이 플래그는 kube-proxy가 이 노드에 대해 로컬로 간주해야 하는 IP주소 범위를 지정하기 위해 `,`로 구분된 IP 블록 리스트를 사용한다. *(default : empty list)* empty list인 경우는 kube-proxy가 모든 사용 가능한 네트워크 인터페이스를 NodePort로 간주해야한다는 것을 의미한다.
+
+특정 포트번호를 지정하길 원한다면 `nodePort` 필드에 값을 지정하면 된다. 컨트롤 플레인은 해당 포트번호를 할당하거나 할당이 실패하면 API 트랜잭션이 실패함을 기록할 것이다. 포트 번호를 명시적으로 지정하려면 유효한 포트번호를 사용해야 한다. (사용 중이지 않은 포트, NodePort가 사용할 범위 내 포트번호 - `--service-node-port-range`)
+
+NodePort를 사용하면 자신만의 로드밸런싱 솔루션을 설정하거나 k8s에서 완전히 지원하지 않는 환경을 구성하거나 하나 이상의 노드의 IP를 직접 노출시킬 수 있다.
+
+서비스는 `<NodeIP>:spec.ports[*].nodePort` 와  `spec.clusterIP:spec.ports[*].port` 로 보일 수 있다. kube-proxy의 `--nodeport-addresses` 플래그나 kube-proxy 설정의 필드가 설정되어있다면 `<NodeIP>` 는 node IP로 필터링될 것이다.
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+spec:
+  type: NodePort
+  selector:
+    app: MyApp
+  ports:
+      # By default and for convenience, the `targetPort` is set to the same value as the `port` field.
+    - port: 80
+      targetPort: 80
+      # Optional field
+      # By default and for convenience, the Kubernetes control plane will allocate a port from a range (default: 30000-32767)
+      nodePort: 30007
+
+```
+
+
+
+### Type LoadBalancer
+
+외부 로드밸런서를 지원하는 클라우드 프로바이더에서, `type` 필드를 `LoadBalancer`로 설정하는 것은 서비스에 로드밸런서를 제공하는 것이다. 로드밸런서의 실제 생성은 비동기적으로 발생하고 제공된 밸런서에 관한 정보는 서비스의 `.status.loadBalancer` 필드에 퍼블리싱된다. 
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+spec:
+  selector:
+    app: MyApp
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 9376
+  clusterIP: 10.0.171.239
+  type: LoadBalancer
+status:
+  loadBalancer:
+    ingress:
+    - ip: 192.0.2.127
+```
+
+외부 로드밸런서로의 트래픽은 백엔드 파드로 향한다. 클라우드 제공자는 로드밸런싱 방법을 결정한다.
+
+일부 클라우드 제공자는 `loadBalancerIP`를 지정하는 것을 허용한다. 이 경우에 대해서, 로드밸런서는 사용자 지정 `loadBalancerIP` 와 함께 생성된다. `loadBalancerIP` 필드가 지정되지 않는다면, 로드밸런서는 하나의 IP 주소로 설정된다. `loadBalancerIP`를 지정하지만 클라우드 제공자가 로드밸런서 기능을 지원하지 않는다면, 설정한 `loadBalancerIP` 는 무시된다.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
