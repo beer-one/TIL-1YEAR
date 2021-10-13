@@ -228,6 +228,168 @@ test-ingress   external-lb   *       203.0.113.123   80      59s
 
 
 
+### Simple Fanout
+
+fanout 설정은 요청 들어온 HTTP URI를 기반으로 단일 IP 주소로부터 하나 이상의 서비스로 가는 트래픽을 라우트한다. 인그레스를 사용하면 로드밸런서의 수를 최소로 유지할 수 있다.
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: simple-fanout-example
+spec:
+  rules:
+  - host: foo.bar.com
+    http:
+      paths:
+      - path: /foo
+        pathType: Prefix
+        backend:
+          service:
+            name: service1
+            port:
+              number: 4200
+      - path: /bar
+        pathType: Prefix
+        backend:
+          service:
+            name: service2
+            port:
+              number: 8080
+```
+
+위의 명세로 인그레스를 생성한 후 조회해보자.
+
+```shell
+$ kubectl describe ingress simple-fanout-example
+Name:             simple-fanout-example
+Namespace:        default
+Address:          178.91.123.132
+Default backend:  default-http-backend:80 (10.8.2.3:8080)
+Rules:
+  Host         Path  Backends
+  ----         ----  --------
+  foo.bar.com
+               /foo   service1:4200 (10.8.0.90:4200)
+               /bar   service2:8080 (10.8.0.91:8080)
+Events:
+  Type     Reason  Age                From                     Message
+  ----     ------  ----               ----                     -------
+  Normal   ADD     22s                loadbalancer-controller  default/test
+```
+
+
+
+인그레스 컨트롤러는 서비스가 존재하는 한 인그레스를 충족시키는 구현 별 로드밸런서를 제공한다. 그러면 Address 필드에서 로드밸런서의 주소를 볼 수 있다. 
+
+
+
+
+
+### Name based virtual hosting
+
+이름기반의 가상 호스팅은 같은 IP 주소의 여러 호스트 이름으로 HTTP 트래픽을 라우팅하는 것을 지원한다.
+
+다음 인그레스는 호스트 헤더 기반의 요청을 라우팅하도록 배킹 로드밸런서에게 알려준다.
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: name-virtual-host-ingress
+spec:
+  rules:
+  - host: foo.bar.com
+    http:
+      paths:
+      - pathType: Prefix
+        path: "/"
+        backend:
+          service:
+            name: service1
+            port:
+              number: 80
+  - host: bar.foo.com
+    http:
+      paths:
+      - pathType: Prefix
+        path: "/"
+        backend:
+          service:
+            name: service2
+            port:
+              number: 80
+```
+
+규칙에 정의된 호스트 없이 인그레스 리소스를 생성하는 경우, 이름 기반 가상 호스트가 필요하지 않는다면 인그레스 컨트롤러의 IP 주소에 대한 웹 트래픽을 일치시킬 수 있다.
+
+
+
+### TLS
+
+TLS 개인키와 인증서를 포함하여 시크릿을 지정함으로써 인그레스를 보호할 수 있다. 인그레스 리소스는 오직 단일 TLS 포트(443) 만을 지원한다. 그리고 인그레스 지점에서 TLS 종료를 가정한다. 인그레스에서 TLS 설정부분이 다른 호스트를 지정한다면 SNI TLS 확장을 통해 지정된 호스트 이름에 따라 동일한 포트에서 다중화된다. TLS 시크릿은 TLS에 사용할 인증서 및 개인키를 포함되어 있는  `tls.crt` 와 `tls.key` 이름으로 된 키를 포함해야한다.
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: testsecret-tls
+  namespace: default
+data:
+  tls.crt: base64 encoded cert
+  tls.key: base64 encoded key
+type: kubernetes.io/tls
+```
+
+인그레스에서 해당 시크릿을 참조하면 인그레스 컨트롤러가 TLS를 사용하여 클라이언트에서 로드밸런서로 가는 채널을 보호하도록 지시한다. 생성한 TLS 시크릿이 `https-example.foo.com`의 FQDN이라고도 하는 Common Name(CN)이 포함된 인증서에서 왔는지 확인해야 한다. 
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tls-example-ingress
+spec:
+  tls:
+  - hosts:
+      - https-example.foo.com
+    secretName: testsecret-tls
+  rules:
+  - host: https-example.foo.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: service1
+            port:
+              number: 80
+```
+
+
+
+### 로드밸런싱
+
+모든 인그레스에 적용되는 로드밸런싱 정책 *(load balancing algorithm, backend weight scheme ...)* 설정과 함께 인그레스 컨트롤러가 부트스트랩된다. 더욱 진화된 로드밸런싱 개념 *(persistent sessions, dynamic weights)*은 인그레스를 통해 노출되지 않는다. 그 대신 해당 피처들은 서비스에 사용되는 로드밸런서로부터 얻을 수 있다.
+
+그리고 헬스체크가 인그레스를 통해 직접 노출되지 않더라도 K8s에는 동일한 최종 결과를 얻을 수 있는 `readiness probe` 와 같은 비슷한 기능이 존재한다는 점도 주목할 가치가 있다.
+
+
+
+## 인그레스 업데이트
+
+기존의 인그레스를 업데이트하여 새 호스트를 추가하려면 리소스를 수정하여 업데이트 할 수 있다.
+
+```shell
+$ kubectl edit ingress <ingress-name>
+```
+
+
+
+위의 명령어를 사용하면 YAML 형식으로 된 기존 인그레스 설정을 수정할 수 있는 에디터가 뜬다. 여기서 인그레스를 업데이트하면 된다. 업데이트를 한 다음 저장하면 kubectl은 인그레스 컨트롤러에게 설정이 수정되었음을 알리고 API 서버의 리소스를 업데이트한다. 
+
+
+
 
 
 
