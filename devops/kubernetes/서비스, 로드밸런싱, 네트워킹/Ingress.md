@@ -392,7 +392,3 @@ $ kubectl edit ingress <ingress-name>
 
 
 
-
-
-
-

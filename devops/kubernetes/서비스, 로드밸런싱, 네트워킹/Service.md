@@ -39,35 +39,6 @@ spec:
   selector:
     app: MyApp
   ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 9376
-apiVersion: v1
-kind: Service
-metadata:
-  name: my-service
-spec:
-  ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 9376
-apiVersion: v1
-kind: Endpoints
-metadata:
-  name: my-service
-subsets:
-  - addresses:
-      - ip: 192.0.2.42
-    ports:
-      - port: 9376
-apiVersion: v1
-kind: Service
-metadata:
-  name: my-service
-spec:
-  selector:
-    app: MyApp
-  ports:
     - name: http
       protocol: TCP
       port: 80

@@ -53,13 +53,14 @@ $ sudo apt-mark hold kubelet kubeadm kubectl
 
 ```shell
 $ sudo apt update
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+$ curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
 $ sudo add-apt-repository \
 "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
 $(lsb_release -cs) \
 stable"
 $ sudo apt-get update && sudo apt-get install docker-ce docker-ce-cli containerd.io -y
 $ sudo systemctl enable docker && sudo service docker start
+$ sudo usermod -a -G docker $USER
 ```
 
 도커를 설치했다면 컨테이너의 cgroup 관리에 systemd를 사용하도록 도커 데몬을 구성한다.
@@ -336,6 +337,14 @@ $ kubectl delete node <node name>
 $ kubeadm reset
 $ rm -rf ~/.kube
 ```
+
+
+
+
+
+
+
+sudo kubeadm join 192.168.0.58:6443 --token drr1r8.2v4vfbnvdtphqime --discovery-token-ca-cert-hash sha256:76a870b8c49ff83ee0a1803d2e6e8dcf371d4683780f43bf2e8155f186cb87a9
 
 
 
