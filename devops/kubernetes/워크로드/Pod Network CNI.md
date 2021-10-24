@@ -50,6 +50,16 @@ Flannel은 클러스터 관리자 관점에서 쿠버네티스 CNI 사용을 시
 
 
 
+### 설치
+
+```shell
+$ sudo kubeadm init --pad-network-cidr=10.244.0.0/16
+
+$ kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+```
+
+
+
 
 
 ### Calico
@@ -82,6 +92,14 @@ Calico에서의 네트워크 정책은 파드에 수신 정책을 할당하기 �
 
 
 
+### 설치
+
+https://docs.projectcalico.org/getting-started/kubernetes/self-managed-onprem/onpremises
+
+
+
+
+
 ### Cilium
 
 ---
@@ -107,6 +125,10 @@ Cilium은 HTTP 요청 필터를 통해 쿠버네티스 네트워크 정책을 �
 
 * BGP를 위해 다른 CNI와 페어링해야 할 수 있다
 * 다중 클러스터를 위한 설치가 복잡하다.
+
+
+
+
 
 
 
