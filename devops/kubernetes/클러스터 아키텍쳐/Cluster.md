@@ -344,7 +344,6 @@ $ rm -rf ~/.kube
 
 
 
-sudo kubeadm join 192.168.0.58:6443 --token drr1r8.2v4vfbnvdtphqime --discovery-token-ca-cert-hash sha256:76a870b8c49ff83ee0a1803d2e6e8dcf371d4683780f43bf2e8155f186cb87a9
 
 
 
