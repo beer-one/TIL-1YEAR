@@ -69,7 +69,10 @@ $ curl -L https://istio.io/downloadIstio | sh -
 
 ```shell
 $ cd istio-1.11.4
+
 $ export PATH=$PWD/bin:$PATH
+# 또는
+$ sudo mv /home/ubuntu/istio/istio-1.11.4/bin/istioctl /usr/local/bin
 ```
 
 

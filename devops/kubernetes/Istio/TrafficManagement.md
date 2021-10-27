@@ -122,7 +122,7 @@ spec:
 
 해당 예시와 다른 예시에서, 단순성을 위해 kubernetes의 destination host에서 short name을 사용한다. 라우팅 룰이 평가된다면, istio가 라우팅 규칙을 포함하는 가상 서비스의 네임스페이스를 기반으로 도메인 접미사를 추가하여 호스트의 정규화된 이름을 가져온다. 
 
-또한, `destination` 섹션은 이 규칙과 조건이 일치하는 요청이 이동할 K8s 서비스의 서브셋을 지정할 수 있다. 위의 예시에서 서비셋의 이름은 `v2` 이다.
+또한, `destination` 섹션은 이 규칙과 조건이 일치하는 요청이 이동할 K8s 서비스의 서브셋을 지정할 수 있다. 위의 예시에서 서브셋의 이름은 `v2` 이다.
 
 
 
@@ -142,7 +142,7 @@ spec:
     	subset: v3
 ```
 
-
+* 서브셋 이름은 `.` 이 불가하다. (`subset name is invalid: v1.0`)
 
 #### 기타 Routing Rules
 
@@ -201,7 +201,7 @@ spec:
 
 
 
-### Destination Rules
+## Destination Rules
 
 virtual service와 함께, destination rules은 istio의 트래픽 라우팅 기능의 핵심 부분이다. Virtual service를 트래픽을 주어진 목적지에 라우트하는 방법으로 생각할 수 있고, 해당 목적지에 대한 트래픽이 어떻게 되는지 구성하기 위해 destination rule을 사용할 수 있다. Destination rules은 virtual service의 라우팅 룰이 평가된 후 적용된다. 따라서, destination rules은 트래픽의 실제 목적지에 적용된다. 
 
@@ -211,7 +211,7 @@ virtual service와 함께, destination rules은 istio의 트래픽 라우팅 기
 
 
 
-#### 로드밸런싱 옵션
+### 로드밸런싱 옵션
 
 기본적으로 istio는 라운드로빈 로드밸런싱 정책을 사용한다. 또한, istio는 아래 모델을 지원하며 특정 서비스나 서비스 하위집합에 대한 요청을 위한 destination rule을 지정할 수 있다.
 
@@ -221,7 +221,7 @@ virtual service와 함께, destination rules은 istio의 트래픽 라우팅 기
 
 
 
-#### Destination rule 예시
+### Destination rule 예시
 
 아래 예시는 3개의 서브셋에 대해 각각 다른 로드밸런싱 정책을 구성하였다.
 
@@ -253,6 +253,191 @@ spec:
 각 서브셋은 하나 이상의 레이블 기반으로 정의되었다. 이 레이블은 K8s 서비스 배포에 메타데이터로 적용되어 다른 버전을 식별한다.
 
 destination rule은 모든 서브셋에 대한 기본 트래픽 정책을 정의한다. subset 필드 위에서 정의된 기본 정책은 simple random 로드밸런서로 설정하였다. (`v1`, `v3` 에 실제로 적용된다.) 그리고 `v2` 에서는 라운드로빈 로드밸런서를 지정하였다.
+
+
+
+
+
+## Gateway
+
+메쉬에 출입하는 트래픽을 관리하기 위해 gateway를 사용한다. gateway를 사용하면 메쉬쪽으로 들어오거나 나갈 트래픽을 지정할 수 있다. 게이트웨이 구성은 서비스 워크로드와 함께 실행되는 사이드카 Envoy 프록시가 아닌 메쉬 엣지에서 실행되는 독립 실행형 Envoy 프록시에 적용된다. 
+
+K8s ingress API와 같이 시스템으로 들어오는 트래픽을 관리하기 위한 다른 메커니즘과 다르게, Istio gateway를 사용하면 istio 트래픽 라우팅의 모든 강력하고 유연한 기능을 사용할 수 있다. Istio gateway 자원은 노출되는 포트, TLS 세팅 등과 같은 4-6 레이어 로드밸런싱 프로퍼티를 구성할 수 있기 때문에 istio gateway를 사용할 수 있다. 그리고 같은 API 리소스에 L7 애플리케이션 레이어 트래픽 라우팅을 추가하는 것 대신, 게이트웨이에 istio virtual service를 바인딩할 수 있다. 이는 기본적으로 istio 메쉬 내 여러 데이터 플레인의 트래픽과 같은 트래픽을 관리할 수 있다.
+
+게이트웨이는 주로 인그레스 트래픽을 관리하기 위해 사용되지만 이그레스 게이트웨이를 구성할 수도 있다. 이그레스 게이트웨이를 사용하면 메쉬를 떠나는 트래픽에 대한 전용 출구 노드를 구성하거나 어떤 서비스가 외부 네트워크로 접근할 수 있는지 제한하거나 메쉬에 보안을 추가하여 이그레스 트래픽에 대한 보안 제어를 할 수 있다.
+
+istio는 몇 가지 미리 구성된 게이트웨이 프록시 배포(`istio-ingressgateway`, `istio-egressgateway`)를 제공한다. 이러한 배포에 고유한 게이트웨이 구성을 적용하거나 고유한 게이트웨이 프록시를 배포 및 구성할 수 있다.
+
+
+
+### Gateway Example
+
+아래 예시는 외부 HTTPS 인그레스 트래픽에 대한 게이트웨이 구성을 보여준다.
+
+```yaml
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: ext-host-gwy
+spec:
+  selector:
+    app: my-gateway-controller
+  servers:
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    hosts:
+    - ext-host.example.com
+    tls:
+      mode: SIMPLE
+      credentialName: ext-host-cert
+```
+
+이 게이트웨이 구성은 `ext-host.example.com` 에서 443포트의 메시로 HTTPS 트래픽을 허용하지만 트래픽에 대한 라우팅을 지정하지 않는다. 라우팅을 지정하고 게이트웨이가 의도한대로 작동하도록 하려면 게이트웨이에 virtual service를 바인딩해야 한다. 이를 virtual service의 `gateways` 필드를 사용하여 바인딩할 수 있다.
+
+```yaml
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: virtual-svc
+spec:
+  hosts:
+  - ext-host.example.com
+  gateways:
+  - ext-host-gwy
+```
+
+그러고 난 후 외부 트래픽에 대한 라우팅 룰과 함께 virtual service를 구성할 수 있다
+
+
+
+## Service Entries
+
+엔트리를 istio가 내부적으로 유지하는 서비스 레지스트리에 추가하기 위해 `service entry	` 를 사용한다. 서비스 엔트리를 추가한 후, Envoy 프록시는 마치 메쉬의 서비스인 것 처럼 트래픽을 서비스로 전송할 수 있다. 서비스 엔트리를 구성하면 메쉬 밖에서 구동 중인 서비스에 대한 트래픽을 관리할 수 있고, 아래 기능 또한 사용할 수 있다.
+
+* 웹에서 사용되는 API 또는 레거시 인프라의 서비스에 대한 트래픽과 같은 외부 대산에 대한 트래픽을 리다이렉션 라고 전달한다.
+* 외부 목적지에 대한 retry, timeout, fault injection 정책을 정의한다.
+* 메쉬에 VM을 추가함으로써 VM에서의 메쉬 서비스를 구동한다.
+
+
+
+### Service Entry Example
+
+다음 예시는 mesh-external service 엔트리에 istio의 서비스 레지스트리에  `ext-svc.example.com` 외부 디펜던시를 추가한다. `hosts` 필드를 사용하여 외부 리소스를 지정한다. 호스트를 완전히 한정하거나 와일드카드 접두사 도메인 이름을 사용할 수도 있다.
+
+```yaml
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: svc-entry
+spec:
+  hosts:
+  - ext-svc.example.com
+  ports:
+  - number: 443
+    name: https
+    protocol: HTTPS
+  location: MESH_EXTERNAL
+  resolution: DNS
+```
+
+메쉬의 다른 서비스에 대한 트래픽을 구성하는 방법과 마찬가지로, 서비스 엔트리에 대한 트래픽을 보다 세부적으로 제어하도록 virtual service와 destination rule을 구성할 수 있다. 예를 들어, 아래 destination rule은 서비스 엔트리를 사용하여 구성한 `ext-svc.example.com` 의 외부 서비스에 대한 연결을 보호하기 위해 상호 TLS를 사용하도록 트래픽 경로를 구성한다.
+
+```yaml
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: ext-res-dr
+spec:
+  host: ext-svc.example.com
+  trafficPolicy:
+    tls:
+      mode: MUTUAL
+      clientCertificate: /etc/certs/myclientcert.pem
+      privateKey: /etc/certs/client_private_key.pem
+      caCertificates: /etc/certs/rootcacerts.pem
+```
+
+
+
+
+
+## Sidecars
+
+기본적으로, istio는 관련된 워크로드의 모든 포트에 대한 트래픽을 받고 트래픽을 전달할 때 메쉬 내의 모든 워크로드에 닿기 위해 모든 Envoy proxy를 구성한다. Sidecar 구성을 사용하여 다음을 수행할 수 있다.
+
+* Envoy 프록시가 허용하는 포트 및 프로토콜 집합을 Fine-tuning한다.
+* Envoy 프록시가 도달하는 서비스의 집합을 제한한다.
+
+
+
+메쉬의 다른 모든 서비스에 도달하도록 모든 프록시를 구성하면 높은 메모리 사용량으로 인해 메쉬 성능에 잠재적으로 영향을 미칠 수 있는 대규모 애플리케이션에서 이와 같이 사이드카 도달 가능성을 제한할 수 있다. 
+
+사이드카 구성이 특정 네임스페이스의 모든 워크로드에 적용되도록 지정하거나 `workloadSelector` 를 사용하여 특정 워크로드를 선택할 수 있다. 
+
+```yaml
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: default
+  namespace: bookinfo
+spec:
+  egress:
+  - hosts:
+    - "./*"
+    - "istio-system/*"
+```
+
+
+
+
+
+
+
+
+
+## EnvoyFilter
+
+https://istio.io/v1.4/docs/reference/config/networking/envoy-filter/#EnvoyFilter-PatchContext
+
+EnvoyFilter는 istio Pilot에 의해 생성되는 Envoy 구성을 커스터마이징하기 위한 메커니즘을 제공한다. EnvoyFilter를 사용하면 어떤 필드에 대한 값을 변경하거나 특정 필터를 추가하거나 새 리스너, 새 클러스터 등을 추가할 수 있다. 대신 부적절한 구성은 메쉬 전체적으로 불안정하게 될 수 있기 때문에 이러한 기능은 조심스럽게 사용해야 한다. 다른 istio 네트워킹 객체와는 다르게, EnvoyFilter는 추가로 적용된다. 특정 네임스페이스의 주어진 워크로드에 EnvoyFilter가 여러 개 존재할 수 있다. 이러한 EnvoyFilter 애플리케이션의 순서는 config root namespace 내의 모든 EnvoyFilter -> 워크로드 네임스페이스의 일치하는 모든 EnvoyFilter 순서이다.
+
+
+
+
+
+### Spec
+
+**spec.workloadSelector**
+
+패치 구성을 적용해야하는 특정 파드/VM 세트를 선택하는 데 사용되는 기준. 대표적으로 라벨 셀렉터가 있다.
+
+
+
+**spec.configPatches**
+
+일치 조건이 있는 하나 이상의 패치
+
+
+
+**configPatches[].applyTo**
+
+Envoy 구성에서 지정된 패치를 적용해야 하는 위치를 지정한다.
+
+* HTTP_FILTER: 기존 필터를 변경하거나 새로운 필터를 추가하기 위해 패치를 HTTP 커넥션 매니저의 HTTP filter chain에 적용한다. 
+* HTTP_ROUTE: 라우트 구성 내 일치하는 가상 호스트 내부 라우트 객체에 패치를 적용한다. 현재는 MERGE 연산자만이 허용된다.
+* CLUSTER: CDS 아웃풋 내 클러스터에 패치를 적용한다. 
+
+
+
+
+
+
+
+
+
+
 
 
 
