@@ -226,4 +226,4 @@ Ingester는 Kafka 토픽을 읽고 다른 스토리지 백엔드에 작성하는
 
 ---
 
-https://blog.naver.com/alice_k106/221832024817
+https://blog.navr.com/alice_k106/221832024817
