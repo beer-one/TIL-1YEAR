@@ -220,6 +220,38 @@ Ingester는 Kafka 토픽을 읽고 다른 스토리지 백엔드에 작성하는
 
 
 
+## Trace 컨텍스트 전파
+
+분산 추적을 통해 사용자는 여러 서비스에 분산되어있는 메쉬를 통해 요청을 추적할 수 있다. 이는 시각화를 통해 요청 대기 시간, 직렬화 및 병렬 처리에 대해 더 깊이 이해할 수 있다. 
+
+istio는 Envoy의 분산 추적 기능을 활용하여 즉시 추적 통합을 제공한다. 특히, istio는 다양한 추적 백엔드를 설치하고 추적 범위를 자동으로 보내도록 프록시를 구성하는 옵션을 제공한다. 
+
+istio 프록시가 자동으로 span을 보내지만, 전체 추적을 연결하기 위해서는 몇 가지 힌트가 필요하다. 프록시가 span 정보를 보낼 때 span이 단일 추적으로 올바르게 연관될 수 있도록 애플리케이션은 적절한 HTTP 헤더를 전파해야 한다. 이를 위해 애플리케이션은 들어오는 요청에서 나가는 요청으로 아래 헤더를 수집하고 전파해야 한다.
+
+* `x-request-id` : Envoy에서 요청을 고유하게 식별하고 안정적인 액세스 로깅 및 추적을 수행하는 데 사용된다. 모든 외부 요청에 대해 생성하고, 내부 요청에 대해서는 헤더가 없다면 새로 생성한다.  `x-request-id` 가 전체 메쉬에 걸쳐 안정적인 ID를 갖기 위해서는 클라이언트 애플리케이션 간에 전파되어야 한다.
+* `x-b3-traceid` : 이 헤더는 Envoy에서 Zipkin tracer가 사용한다. 64비트의 길이를 가지며 trace 전체의 ID를 나타낸다. 모든 Span은 이 traceid를 공유한다. (span들이 한 trace에 묶이려면 이 헤더를 공유해야 한다.)
+* `x-b3-spanid` : 이 헤더는 Envoy에서 Zipkin tracer가 사용한다. 64비트의 길이를 가지며 추적 트리에서 현재 작업의 위치를 나타낸다. 
+* `x-b3-parentspanid` : 이 헤더는 Envoy에서 Zipkin tracer가 사용한다. 64비트의 길이를 가지며 추적 트리에서 부모 작업의 위치를 나타낸다. span이 root면 해당 헤더는 없다.
+* `x-b3-sampled` : 이 헤더는 Envoy에서 Zipkin tracer가 사용한다. Sampled flag가 지정되지 않거나 1로 설정되면 span이 추적 시스템에 보고된다. sampled가 한번 설정되면 sampled 값이 downstream으로 전달된다.
+* `x-b3-flags` : 이 헤더는 Envoy에서 Zipkin tracer가 사용한다. 하나 이상의 옵션이 인코딩된다.
+* `x-ot-span-context` : Envoy에서 LigthStep 추적 프로그램과 함께 사용할 때 추적 범위 간의 적절한 상-하위 관계를 설정하는 데 사용된다. Egress span은 ingress span의 자식이 된다. Envoy는 해당 헤더를 ingress 요청에 주입학고 로컬 서비스로 전달한다. 
+
+
+
+위에서 설명된 헤더는 기본적으로 [envoy proxy](https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_conn_man/headers#x-request-id)가 생성한다.
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -227,3 +259,20 @@ Ingester는 Kafka 토픽을 읽고 다른 스토리지 백엔드에 작성하는
 ---
 
 https://blog.navr.com/alice_k106/221832024817
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
