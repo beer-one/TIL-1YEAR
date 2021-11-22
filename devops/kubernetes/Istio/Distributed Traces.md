@@ -163,6 +163,8 @@ Trace는 시스템을 통한 데이터/실행 경로이다. 그리고 span의 �
 
 ![Traces And Spans](https://www.jaegertracing.io/img/spans-traces.png)
 
+
+
 ## 컴포넌트
 
 Jaeger는 모든 Jaeger 백엔드 컴포넌트가 하나의 프로세스로 실행되는 all-in-one 바이너리로 배포하거나 확장성 있는 분산 시스템으로 배포할 수도 있다. 여기에 두 가지 주요 배포 옵션이 있다.

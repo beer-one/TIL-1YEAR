@@ -35,7 +35,7 @@ $ kubectl -n elastic-system logs -f statefulset.apps/elastic-operator
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: elasticsearch
+  name: jaeger
 ```
 
 **pv.yaml**
@@ -45,7 +45,7 @@ apiVersion: v1
 kind: PersistentVolume
 metadata:
   name: elastic-pv
-  namespace: elasticsearch
+  namespace: jaeger
 spec:
   capacity:
     storage: 1Gi
@@ -69,7 +69,7 @@ apiVersion: elasticsearch.k8s.elastic.co/v1
 kind: Elasticsearch
 metadata:
   name: quickstart
-  namespace: elasticsearch
+  namespace: jaeger
 spec:
   version: 7.15.2
   nodeSets:
@@ -80,7 +80,7 @@ spec:
     volumeClaimTemplates:
     - metadata:
         name: elasticsearch-data # Do not change this name unless you set up a volume mount for the data path.
-        namespace: elasticsearch
+        namespace: jaeger
       spec:
         accessModes:
         - ReadWriteOnce
@@ -105,7 +105,7 @@ $ kubectl apply -f es.yaml
 생성하였다면 elasticsearch가 잘 떠있는지 확인하자.
 
 ```shell
-$ kubectl get elasticsearch -n elasticsearch
+$ kubectl get elasticsearch -n jaeger
 NAME         HEALTH   NODES   VERSION   PHASE   AGE
 quickstart   green    1       7.15.2    Ready   97m
 ```
@@ -113,13 +113,13 @@ quickstart   green    1       7.15.2    Ready   97m
 * 최초로 생성하고 바로 확인하면 HEALTH, PHASE가 빈 값으로 설정될건데 성공적으로 배포되었다면 HEALTH=green, PHASE=Ready로 변경된다.
 
 ```shell
-$ kubectl get pods --selector='elasticsearch.k8s.elastic.co/cluster-name=quickstart' -n elasticsearch
+$ kubectl get pods --selector='elasticsearch.k8s.elastic.co/cluster-name=quickstart' -n jaeger
 NAME                      READY   STATUS    RESTARTS   AGE
 quickstart-es-default-0   1/1     Running   0          98m
 ```
 
 ```shell
-$ kubectl logs -f quickstart-es-default-0 -n elasticsearch
+$ kubectl logs -f quickstart-es-default-0 -n jaeger
 ```
 
 
@@ -129,7 +129,7 @@ $ kubectl logs -f quickstart-es-default-0 -n elasticsearch
 Elasticsearch가 배포되었다면 아래 서비스가 생성될 것이다.
 
 ```shell
-$ kubectl get svc -n elasticsearch
+$ kubectl get svc -n jaeger
 NAME                      TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)    AGE
 quickstart-es-default     ClusterIP   None             <none>        9200/TCP   99m
 quickstart-es-http        ClusterIP   10.107.199.158   <none>        9200/TCP   99m
@@ -141,7 +141,7 @@ quickstart-es-transport   ClusterIP   None             <none>        9300/TCP   
 1. Credential 얻기: elasticsearch의 기본 유저는 `elastic` 이며, 이는 자동으로 쿠버네티스 시크릿에 저장된 패스워드를 가진다.
 
    ```shell
-   $ kubectl get secret quickstart-es-elastic-user -o go-template='{{.data.elastic | base64decode}}' -n elasticsearch
+   $ kubectl get secret quickstart-es-elastic-user -o go-template='{{.data.elastic | base64decode}}' -n jaeger
    ```
 
 2. 쿠버네티스 클러스터 내에서 elasticsearch 엔드포인트로 요청하자.
@@ -149,7 +149,7 @@ quickstart-es-transport   ClusterIP   None             <none>        9300/TCP   
    ```shell
    $ kubectl run curl-test --image=radial/busyboxplus:curl -i --tty --rm
    If you don't see a command prompt, try pressing enter.
-   [ root@curl-test:/ ]$ curl -u "elastic:Z5KR66m1CX1xU28bC7e57Dwn" -k "https://quickstart-es-http.elasticsearch:9200"
+   [ root@curl-test:/ ]$ curl -u "elastic:Z5KR66m1CX1xU28bC7e57Dwn" -k "https://quickstart-es-http.jaeger:9200"
    {
      "name" : "quickstart-es-default-0",
      "cluster_name" : "quickstart",
@@ -171,20 +171,20 @@ quickstart-es-transport   ClusterIP   None             <none>        9300/TCP   
 
    
 
-### Kibina 배포
+### Kibana 배포
 
-Kibina 인스턴스를 배포하자.
+Kibana 인스턴스를 배포하자.
 
 1. elasticsearch 클러스터와 관련된 kibina 인스턴스를 정의하자.
 
-**kibina.yaml**
+**kibana.yaml**
 
 ```yaml
 apiVersion: kibana.k8s.elastic.co/v1
 kind: Kibana
 metadata:
   name: quickstart
-  namespace: elasticsearch
+  namespace: jaeger
 spec:
   version: 7.15.2
   count: 1
@@ -193,7 +193,7 @@ spec:
 ```
 
 ```shell
-$ kubectl apply -f kibina.yaml
+$ kubectl apply -f kibana.yaml
 ```
 
 
@@ -201,7 +201,7 @@ $ kubectl apply -f kibina.yaml
 2. kibana가 잘 배포되었는지 확인하자.
 
 ```shell
-$ kubectl get kibana -n elasticsearch
+$ kubectl get kibana -n jaeger
 NAME         HEALTH   NODES   VERSION   AGE
 quickstart   green    1       7.15.2    3m28s
 ```
@@ -211,7 +211,7 @@ quickstart   green    1       7.15.2    3m28s
 3. Kibana service에 접근하자. kibana를 배포하였다면 `quickstart-kb-http` 서비스가 생성될 것이다.
 
 ```shell
-$ kubectl get svc -n elasticsearch
+$ kubectl get svc -n jaeger
 NAME                      TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)    AGE
 quickstart-es-default     ClusterIP   None             <none>        9200/TCP   125m
 quickstart-es-http        ClusterIP   10.107.199.158   <none>        9200/TCP   125m

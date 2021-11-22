@@ -72,7 +72,7 @@ $ kubectl create -f https://raw.githubusercontent.com/jaegertracing/jaeger-opera
 
 
 
-`observability` 가 아닌 다른 네임스페이스를 사용하려면 `cluster_role_binding.yaml` 파일을 다운로드하고 커스터마이징 해야 한다. 그리고  `operator.yaml` 파일을 다운로드하고 커스터마이징 해서 환경변수 `WATCH_NAMESPACE` 를 빈 값으로 설정하여 모든 네임스페이스에서 인스턴스를 감시하려고 할 수도 있다.
+jaeger operator를 `observability` 가 아닌 다른 네임스페이스를 사용하려면 `cluster_role_binding.yaml` 파일을 다운로드하고 커스터마이징 해야 한다. 그리고  `operator.yaml` 파일을 다운로드하고 커스터마이징 해서 환경변수 `WATCH_NAMESPACE` 를 빈 값으로 설정하여 모든 네임스페이스에서 인스턴스를 감시하려고 할 수도 있다.
 
 
 
@@ -254,6 +254,199 @@ spec:
 
 ### Elasticsearch storage
 
+```yaml
+apiVersion: jaegertracing.io/v1
+kind: Jaeger
+metadata:
+  name: simple-prod
+  namespace: jaeger # <1>
+spec:
+  strategy: production
+  storage:
+    type: elasticsearch # <2>
+    options:
+      es:
+        server-urls: https://quickstart-es-http:9200 # <3>
+        index-prefix: my-prefix
+        tls: # <4>
+          ca: /es/certificates/ca.crt
+    secretName: jaeger-secret # <5>
+  volumeMounts: # <6>
+    - name: certificates
+      mountPath: /es/certificates/
+      readOnly: true
+  volumes:
+    - name: certificates
+      secret:
+        secretName: quickstart-es-http-certs-public
+```
+
+1. 네임스페이스이다. ECK로 elasticsearch를 생성하였다면 elasticsearch와 같은 네임스페이스로 해야 한다.
+
+2. 스토리지 타입을 elasticsearch로 잡았다.
+
+3. 실제 접근할 elasticsearch 서버 url이다. 
+
+4. TLS 구성이다. 해당 예시에서는 오직 CA certificate만 구성하였는데 mutual TLS를 사용한다면 `es.tls.key`, `es.tls.cert` 을 추가로 구성할 수 있다.
+
+5. elasticsearch에 접속할 계정 정보를 가지는 시크릿이다. 이 시크릿에는 `ES_PASSWORD`, `ES_USERNAME` 이 필요하며 아래 명령어로 시크릿을 만들면 된다. [K8S 공식문서](https://kubernetes.io/ko/docs/concepts/configuration/secret/#%EC%A0%9C%EC%95%BD-%EC%82%AC%ED%95%AD)에서는 **시크릿 리소스는 동일한 네임스페이스에 있는 파드에서만 참조가 가능하다**고 한다. 그러므로 Jaeger의 네임스페이스와 같은 네임스페이스에서 시크릿을 생성해야 한다.
+
+   ```shell
+   $ kubectl create secret generic jaeger-secret --from-literal=ES_PASSWORD=${password} --from-literal=ES_USERNAME=${username} -n jaeger
+   ```
+
+6. 볼륨마운트와 볼륨이다. `tls.ca` 와 관련이 있으며 volume은 elasticsearch의 cert 관련된 secret이다. ECK로 elasticsearch를 생성하였다면 기본적으로 `quickstart-es-http-certs-public` 시크릿이 생성된다. **(5)** 와 같은 이유로, **(1)** 이 설명된다.
+
+
+
+
+
+
+
+##  Jaeger Agent 구성
+
+Jaeger Agent는 sidecar로써 파드마다 붙어있을 수도 있고 daemonset으로써 모든 노드당 하나의 agent로 구성할 수도 있다. 각자의 장단점이 있을 것이니까 기호에 맞게 구성하면 된다.
+
+
+
+### Agent Sidecar
+
+operator는 디플로이먼트 워크로드에 Jaeger agent sidecar를 주입할 수 있으며 디플로이먼트나 네임스페이스에 `sidecar.jaegertracing.io.inject` 애노테이션에 알맞는 값이 있으면 자동으로 주입시켜준다. 해당 애노테이션 값은 `"true"` 이거나 `kubectl get jaegers` 에서 반환되는 Jaeger 인스턴스 이름으로 하면 된다. 
+
+`"true"` 를 사용하면 디플로이먼트와 동일한 네임스페이스에 대해 정확히 하나의 jaeger 인스턴스가 있어야 한다. 아니면, operator는 사용할 jaeger 인스턴스를 자동으로 확인할 수 없다. Jaeger 인스턴스 이름을 디플로이먼트에 지정하는 것이 `true` 를  적용하는 것 보다 우선순위가 높다.
+
+아래 예시는 동일한 네임스페이스에서 사용 가능한 단일 jaeger 인스턴스를 가리키는 jaeger agent와 함께 사이드카가 주입되는 간단한 애플리케이션이다. 
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+  annotations:
+    "sidecar.jaegertracing.io/inject": "true"
+spec:
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      containers:
+      - name: myapp
+        image: acme/myapp:myversion
+```
+
+sidecar가 주입된다면 jaeger agent는 `localhost`로 접근이 가능하다.
+
+
+
+### Deployment-level Configurations for Injected Sidecars
+
+jaeger-opoerator에 의해 관리되지 않는 디플로이먼트에 사이드카가 주입된다면 디플로이먼트 레벨에서 적용하는 많은 구성은 에이전트 노드 아래에 지정되지 않는 한 사이드카의 디플로이먼트에 적용되지 않는다. 사이드카 디플로이먼트에는 다음 구성이 지원된다.
+
+* Volume
+* ImagePullSecret
+
+아래 Jaeger 구성은 사이드카 디플로이먼트에 `agent-volume` 과 `agent-imagePullSecrets` 을 추가한다.
+
+```yaml
+apiVersion: jaegertracing.io/v1
+kind: Jaeger
+metadata:
+  name: my-jaeger
+spec:
+  agent:
+    volumeMounts:
+    - name: agent-volume
+      mountPath: /tmp/agent
+      readOnly: true
+    volumes:
+      - name: agent-volume
+        secret:
+          secretName: agent-secret
+    imagePullSecrets:
+    - name: agent-imagePullSecret
+```
+
+
+
+### Manually Defining Jaeger Agent Sidecars
+
+디플로이먼트 이외의 컨트롤러에 대해 (StatefulSet, DaemonSet 등) Jaeger agent 사이드카는 명세 내에서 수동으로 정의할 수 있다.
+
+아래 예시는 Jaeger agent 사이드카에 대한 컨테이너 섹션에 포함할 수 있는 수동 정의이다. (`template.spec.containers` 에 이 내용이 들어간다.)
+
+```yaml
+- name: jaeger-agent
+  image: jaegertracing/jaeger-agent:latest
+  imagePullPolicy: IfNotPresent
+  ports:
+    - containerPort: 5775
+      name: zk-compact-trft
+      protocol: UDP
+    - containerPort: 5778
+      name: config-rest
+      protocol: TCP
+    - containerPort: 6831
+      name: jg-compact-trft
+      protocol: UDP
+    - containerPort: 6832
+      name: jg-binary-trft
+      protocol: UDP
+    - containerPort: 14271
+      name: admin-http
+      protocol: TCP
+  args:
+    - --reporter.grpc.host-port=dns:///jaeger-collector-headless.observability:14250
+    - --reporter.type=grpc
+```
+
+
+
+### Installing the Agent as DaemonSet
+
+기본적으로 Operator는 타겟 애플리케이션에 agent가 사이드카로 배포될 것으로 예상한다. 이는 multi-tenant 시나리오 또는 더 나은 로드밸런싱과 같이 여러 목적에 대래 편리하지만 에이전트를 DaemonSet으로 설치할 수도 있다. 아래 예시는 에이전트의 전략을 `DaemonSet` 으로 설정한다.
+
+```yaml
+apiVersion: jaegertracing.io/v1
+kind: Jaeger
+metadata:
+  name: my-jaeger
+spec:
+  agent:
+    strategy: DaemonSet
+```
+
+그러면 tracer 클라이언트에 에이전트가 있는 위치를 알려야 할 가능성이 크다. 이는 보통 `JAEGER_AGENT_HOST` 환경변수에 쿠버네티스 노드 IP를 설정하는 방식을 사용한다.
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+spec:
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      containers:
+      - name: myapp
+        image: acme/myapp:myversion
+        env:
+        - name: JAEGER_AGENT_HOST
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+```
+
+
+
 
 
 
@@ -277,14 +470,6 @@ Jaeger 백엔드는 key-value 스토리지 위에 클라이언트 측에서 검�
 성능 실험에서는 ES보다 Cassandra가 단일 쓰기가 더 빠르다는 것을 발견하였다. 그러나 Jaeger backend는 key-value 스토리지 위에 검색 기능을 구현해야 하기 때문에 Cassandra에 span을 쓰는 것은 실제로 오래걸린다. Span 자체에 대한 레코드를 작성하는 것 외에도 Jaeger는 서비스 이름과 operation 이름 인덱싱에 대한 추가 쓰기와 모든 태그에 대한 추가 인덱스 쓰기를 수행한다. 반면에 Elasticsearch에 span을 저장하는 것은 단일 쓰기이며 모든 인덱싱은 ES 노드 내부에서 발생한다. 그 결과로 전체 throughput은 Cassandra와 Elasticsearch가 비슷하다.
 
 Cassndra 백엔드의 이점은 데이터 TTL에 대한 기본 지원으로 인해 유지관리가 간소화된다. ES에서 데티어 만료는 index rotation을 통해 관리된다.
-
-
-
-
-
-
-
-
 
 
 
