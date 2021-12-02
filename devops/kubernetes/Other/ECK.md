@@ -149,7 +149,7 @@ quickstart-es-transport   ClusterIP   None             <none>        9300/TCP   
    ```shell
    $ kubectl run curl-test --image=radial/busyboxplus:curl -i --tty --rm
    If you don't see a command prompt, try pressing enter.
-   [ root@curl-test:/ ]$ curl -u "elastic:Z5KR66m1CX1xU28bC7e57Dwn" -k "https://quickstart-es-http.jaeger:9200"
+   [ root@curl-test:/ ]$ curl -u "elastic:D409w306qa7no2jsqLyGg55Y" -k "https://quickstart-es-http.jaeger:9200"
    {
      "name" : "quickstart-es-default-0",
      "cluster_name" : "quickstart",

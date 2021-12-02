@@ -144,6 +144,16 @@ kube-proxy가 다른 모드로 시작할 수 있다. kube-proxy의 모드는 설
 
 
 
+쿠버네티스 서비스에 대한 iptable 리스트를 보는 방법은 아래 명령어를 사용하면 된다.
+
+```shell
+$ sudo iptables -t nat -L KUBE-SERVICES -n  | column -t
+```
+
+
+
+
+
 ### iptables proxy mode
 
 해당 모드에서, kube-proxy는 서비스와 엔드포인트 객체가 추가되는지 삭제되는지 확인하기 위해 컨트롤 플레인을 지켜본다. 각 서비스에 대해 서비스의 `ClusterIP`와 `Port`로 향하는 트래픽을 캡쳐하는 iptable rule을 설치한다. 그리고 그 트래픽을 서비스의 백엔드 셋 중 하나로 리다이렉트한다. 각 엔드포인트 객체에 대해 백엔드 파드를 선택하는 iptable rule을 설치한다. 
