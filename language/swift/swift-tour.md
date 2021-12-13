@@ -373,3 +373,311 @@ let sortedNumbers = numbers.sorted { $0 > $1 }
 print(sortedNumbers) // [20, 19, 12, 7]
 ```
 
+
+
+## 객체와 클래스
+
+`class` 키워드를 사용하여 클래스를 생성할 수 있다. 클래스에서 프로퍼티 정의는 클러스 컨텍스트에 있다는 점을 제외하고는 상수와 변수의 선언과 같은 방식으로 작성된다. 메서드와 함수도 같은 방식으로 작성된다.
+
+```swift
+class Shape {
+  var numberOfSides = 0
+  func simpleDescription() -> String {
+    return "A shape with \(numberOfSides) sides."
+  }
+}
+```
+
+
+
+클래스 이름 뒤에 괄호를 넣어서 클래스의 인스턴스를 생성할 수 있다. `.` 을 이용하여 인스턴스의 프로퍼티와 메서드에 접근할 수 있다.
+
+```swift
+var shape = Shape()
+shape.numberOfSides = 7
+var shapeDescription = shape.simpleDescription()
+```
+
+
+
+클래스에 `init` 키워드를 통해 생성자를 선언할 수도 있다. 생성자 내에 파라미터 선언도 가능하다.
+
+```swift
+class NamedShape {
+  var numberOfSides: Int = 0
+  var name: String
+  
+  init(name: String) {
+    self.name = name
+  }
+  
+  func simpleDescription() -> String {
+    return "A shape with \(numberOfSides) sides."
+  }
+}
+```
+
+* `self` 키워드를 통해 같은 이름을 가진 객체 프로퍼티와 생성자 파라미터를 구분할 수 있다.
+* `deinit` 키워드를 통해 소멸자를 선언할 수 있다. 소멸자는 객체가 할당 해제되기 전에 정리할 자원이 있다면 자원을 정리하기 위해 사용한다.
+
+
+
+서브클래스는 해당 클래스 이름 뒤에 `:` 을 붙인 후 슈퍼 클래스 이름이 포함된다. 슈퍼클래스의 구현을 오버라이드하는 서브클래스의 메서드들은 `override` 로 표시한다. `override` 가 없다면 컴파일러는 이를 에러로 간주한다. 컴파일러는 또한 슈퍼클래스의 어떤 메서드도 오버라이드하지않는 메서드를 탐지한다.
+
+```swift
+class Square: NamedShape {
+  var sideLength: Double
+  
+  init(sideLength: Double, name: String) {
+    self.sideLength = sideLength
+    super.init(name: name)
+    numberOfSides = 4
+  }
+  
+  func area() -> Double {
+    return sideLength * sideLength
+  }
+  
+  override func simpleDescription() -> String {
+    return "A Square with sides of length \(sideLength)"
+  }
+}
+
+let test = Square(sideLength: 5.2, name: "TestSquare")
+test.area()
+test.simpleDescription()
+```
+
+
+
+
+
+
+
+프로퍼티에는 저장되는 단순 프로퍼티 외에도 getter와 setter가 있을 수 있다.
+
+```swift
+class EquilateralTriangle: NamedShape {
+  var sideLength: Double = 0.0
+  
+  init(sideLength: Double, name: String) {
+    self.sideLength = sideLength
+    super.init(name: name)
+    numberOfSides = 3
+  }
+  
+  // 모서리 길이 총 합
+  var perimeter: Double {
+    get {
+      return 3.0 * sideLength
+    }
+    set {
+      sideLength = newValue / 3.0
+    }
+    
+    // set (value: Double) { sideLength = value / 3.0 }
+  }
+  }
+  
+  override func simpleDescription() -> String {
+    return "An equailateral triangle with sides of length \(sideLength)."
+  }
+}
+
+var triangle = EquailateralTriangle(sideLength: 3.1, name: "triangle")
+print(triangle.perimeter) // 9.3
+triangle.perimeter = 9.9
+print(triangle.sideLength) // 3.3000000000000003
+```
+
+
+
+`perimeter` 의 setter에서는 새로운 값을 의미하는 `newValue`를 사용한다. `set` 괄호 내에 명시적으로 이름을 제공할 수도 있다.
+
+`EquilateralTriangle` 클래스에서 생성자는 3단계를 거친다.
+
+1. 서브클래스 선언의 프로퍼티 값을 설정한다.
+2. superclass의 생성자를 호출한다.
+3. superclass에 선언되어있는 프로퍼티 값을 변경한다. 메서드 getter, setter를 사용하는 추가 설정 작업도 이 시점에서 수행할 수 있다.
+
+
+
+만약 프로퍼티를 계산할 필요는 없지만 새 값을 설정하기 전과 후에 실행되는 코드를 제공해야 하는 경우 `willSet` 과 `didSet` 을 사용할 수 있다. `willSet` 과 `didSet` 으로 이루어진 코드는 생성자 밖에서 값이 변경될 때 마다 실행된다. 
+
+```swift
+class TriangleAndSquare {
+  var triangle: EquailateralTriangle {
+    willSet {
+      square.sideLength = newValue.sideLength
+    }
+  }
+  
+  var square: Square {
+    willSet {
+      triangle.sideLength = newValue.sideLength
+    }
+  }
+  
+  init(size: Double, name: String) {
+    square = Square(sideLength: size, name: name)
+    triangle = EquailateralTriangle(sideLength: size, name: name)
+  }
+}
+
+var triangleAndSquare = TriangleAndSquare(size: 10, name: "test")
+
+print(triangleAndSquare.square.sideLength) // 10.0
+print(triangleAndSquare.triangle.sideLength) // 10.0
+
+triangleAndSquare.square = Square(sideLength: 50, name: "test2")
+print(triangleAndSquare.triangle.sideLength) // 50.0
+```
+
+
+
+옵셔널 값을 사용한다면 메서드, 프로퍼트, 서브스크립팅과 같은 연산자를 사용하기 전에 `?` 키워드를 사용할 것이다. `?` 이전의 값이 `nil` 일 경우, `?` 이후의 값이 무시되고 전체 연산의 결과가 `nil` 이 될 것이다. 반대로, 옵셔널 값이 래핑되어있지 않고, `?` 이후로 오는 모든 값들이 래핑되어있지 않은 값에 작용한다. 이 두 가지 경우 모두 다, 전체 값의 결과는 옵셔널 값이 된다.
+
+```swift
+let optionalSquare: Square? = Square(sideLength: 2.5, name: "optional")
+let sideLength = optionalSquare?.sideLength
+```
+
+
+
+## 열거형과 구조체
+
+`enum` 키워드를 사용하여 열거형을 생성할 수 있다. 클래스와 같이 열거형도 메서드를 선언할 수 있다.
+
+```swift
+enum Rank: Int {
+  case ace = 1
+  case two, three, four, five, six, seven, eight, nine, ten
+  case jack queen, king
+  
+  func simpleDescription() -> String {
+    swich self {
+      case .ace:
+        return "ace"
+      case .jack:
+        return "jack"
+      case .queen:
+        return "queen"
+      case .king
+        return "king"
+      default:
+        return String(self.rawValue)
+    }
+  }
+}
+
+let ace = Rank.ace
+let aceRawValue = ace.rawValue
+```
+
+기본적으로 스위프트는 raw value를 0부터 시작해서 1씩 증가하여 변수에 할당한다. 위의 예시에서는 처음 변수에 1을 할당했기 때문에 나머지 변수들은 2부터 1씩 증가하여 변수에 값을 할당하게 된다. 
+
+
+
+`init?(rawValue:)` 생성자를 사용하여 열거형 인스턴스를 생성할 수 있다. 이 값은 선언된 열거형 변수의 rawValue에 일치하는 경우가 아니라면 `nil` 으로 할당된다.
+
+
+
+열거형의 case 에서 사용되는 값은 원시 값을 쓰는 다른 방법이 아닌 실제 값이다. 사실, raw value를 사용할 필요가 없을 경우에는 raw value를 제공하지 않아도 된다.
+
+```swift
+enum Suit {
+  case spades, hearts, diamonds, clubs
+  
+  func simpleDescription() -> String {
+    switch self {
+      case .spades:
+        return "spades"
+      case .hearts:
+        return "hearts"
+      case .diamonds:
+        return "diamonds"
+      case .clubs:
+        return "clubs"
+    }
+  }
+}
+
+let hearts = Suit.hearts
+let heartsDescription = hearts.simpleDescription()
+```
+
+
+
+열거형은 열거형과 연관된 값을 가질 수 있다. 이 연관된 값은 열거형 인스턴스를 생성할 때 결정할 수 있고 이 값은 열거형 인스턴스마다 다른 값으로 선언할 수 있다. 이 연관된 값을 열거형 인스턴스의 저장 프로퍼티로 생각하면 된다. 
+
+
+
+예를 들어, 서버로부터 일출, 일몰시간을 요청하는 경우를 생각해보자. 서버가 요청된 정보로 응답하거나 무엇이 잘못되었는지에 대한 설명을 응답한다.
+
+```swift
+enum ServerResponse {
+  case result(String, String)
+  case failure(String)
+}
+
+let success = ServerResponse.result("6:00 am", "8:09 pm")
+let failure = ServerResponse.failure("Out of cheese.")
+
+switch success {
+  case let .result(sunrise, sunset):
+    print("Sunrise is at \(sunrise) and sunset is at \(sunset)")
+  case let .failure(message):
+    print("Failure.... \(message)")
+}
+```
+
+
+
+
+
+`struct` 키워드를 통해 구조체를 생성한다. 구조체는 메서드 및 생성자를 포함하여 클래스와 같은 많은 동작을 지원한다. 구조체와 클래스의 가장 큰 차이점 중 하나는 구조체는 코드에서 전달될 때 항상 값이 복사되지만 클래스는 참조에 의해 전달된다는 점이다.
+
+```swift
+struct Card {
+    var rank: Rank
+    var suit: Suit
+    func simpleDescription() -> String {
+        return "The \(rank.simpleDescription()) of \(suit.simpleDescription())"
+    }
+}
+let threeOfSpades = Card(rank: .three, suit: .spades)
+let threeOfSpadesDescription = threeOfSpades.simpleDescription()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
