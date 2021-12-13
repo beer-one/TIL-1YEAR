@@ -651,6 +651,60 @@ let threeOfSpadesDescription = threeOfSpades.simpleDescription()
 
 
 
+## Protocol 과 Extensions
+
+`protocol` 키워드를 통해 프로토콜을 선언할 수 있다. 프로토콜은 자바/코틀린의 `interface` 와 비슷한 것 같다.
+
+```swift
+protocol ExampleProtocol {
+  var simpleDescription: String { get }
+  mutating func adjust()
+}
+```
+
+
+
+클래스, 열거형, 구조체는 프로토콜을 채택(adopt)할 수 있다. `implementation?`
+
+```swift
+class SimpleClass: ExampleProtocol {
+  var simpleDescription: String = "A very simple class"
+  var anotherProperty: Int = 12345
+  
+  func adjust() {
+    simpleDescription += " Now 100% adjusted."
+  }
+}
+
+var a = SimpleClass()
+a.adjust()
+let aDescription = a.simpleDescription
+
+struct SimpleStructure: ExampleProtocol {
+  var simpleDescription: String = "A simple structure"
+  
+  mutating func adjust() {
+    simpleDescription += " (adjusted)"
+  }
+}
+
+var b = SimpleStructure()
+b.adjust()
+let bDescription = b.simpleDescription
+```
+
+`SimpleClass` 에서는 구조체를 수정하는 메서드를 표시하기 위해 `mutating` 키워드를 사용한다. 클래스의 메서드는 항상 클래스를 수정할 수 있으므로  `SimpleClass` 의 선언에서는 `mutating` 으로 표시된 메서드가 필요없다.
+
+
+
+그리고 변수를 프로토콜 타입으로 생성하여 프로토콜을 채택한 인스턴스를 할당할 수 있다. 변수가 만약 프로토콜 타입일 경우, 프로토콜에서 선언된 프로퍼티와 메서드를 제외한 나머지는 호출이 불가능하다. 
+
+```swift
+let protocolValue: ExampleProtocol = a
+print(protocolValue.simpleDescription)
+```
+
+런타임에서는 `protocolValue` 의 값이 `SimpleClass` 타입이지만 컴파일러는 이 변수를 `ExampleProtocol`로 취급한다.
 
 
 
@@ -660,14 +714,163 @@ let threeOfSpadesDescription = threeOfSpades.simpleDescription()
 
 
 
+`extension` 키워드를 사용하여 기존 타입에 함수를 추가할 수 있다. 익스텐션을 사용하여 다른 곳에서 선언된 타입이나 라이브러리 또는 프레임워크에서 가져온 타입에 기능을 추가할 수 있다.
+
+```swift
+extension Int: ExampleProtocol {
+    var simpleDescription: String {
+        return "The number \(self)"
+    }
+    mutating func adjust() {
+        self += 42
+    }
+}
+print(7.simpleDescription)
+// Prints "The number 7"
+```
 
 
 
+## Error Handling
+
+에러를 `Error` 프로토콜을 채택한 타입으로 선언할 수 있다.
+
+```swift
+enum PrinterError: Error {
+    case outOfPaper
+    case noToner
+    case onFire
+}
+```
 
 
 
+`throw` 키워드를 통해 에러를 던질 수 있고, `throws` 키워드를 통해 에러를 던질 수 있는 메서드를 명시할 수 있다. 함수에 에러를 던지면 함수가 즉시 반환되고 함수를 호출한 코드에서 오류를 처리한다.
+
+```swift
+func send(job: Int, toPrinter printerName: String) throws -> String {
+  if printerName == "Never has toner" {
+    throw PrinterError.noToner
+  }
+  return "Job sent"
+}
+```
 
 
+
+에러를 처리하는 여러 방식이 있다. 그 방식 중 하나는 `do-catch` 를 사용하는 것이다. `do` 블럭 내부에서는 앞에 `try` 를 붙여 에러를 유발할 수 있는 코드를 표시한다. `catch` 블럭 내부에서는 다른 이름을 지정하지 않으면 오류에 자동으로 `error` 라는 이름의 오류가 지정된다.
+
+
+
+```swift
+do {
+  let printerResponse = try send(job: 1040, toPrinter: "Seowon")
+  print(printResponse)
+} catch {
+  print(error)
+}
+```
+
+
+
+`catch` 블럭을 여러개 둬서 에러별로 에러 핸들링 코드를 넣을 수도 있다.
+
+```swift
+do {
+    let printerResponse = try send(job: 1440, toPrinter: "Gutenberg")
+    print(printerResponse)
+} catch PrinterError.onFire {
+    print("I'll just put this over here, with the rest of the fire.")
+} catch let printerError as PrinterError {
+    print("Printer error: \(printerError).")
+} catch {
+    print(error)
+}
+// Prints "Job sent"
+
+```
+
+
+
+에러를 처리하는 다른 한가지 방식은 `try?` 키워드를 사용하는 것이다. 이 방식은 `try?` 뒤의 코드에서 에러가 발생한다면 `nil` 을 반환하고 에러가 발생하지 않는다면 원래 값으로 반환한다.
+
+```swift
+let printerSuccess = try? send(job: 1884, toPrinter: "Mergenthaler")
+let printerFailure = try? send(job: 1885, toPrinter: "Never Has Toner")
+```
+
+
+
+`defer` 키워드를 사용하여 함수가 반환되기 직전에 (나중에) 실행되는 코드블록을 작성할 수 있다. 이 코드는 함수가 에러를 발생함에 관계 없이 마지막에 실행된다. 그래서 `defer` 키워드를 사용하여 설정 및 정리 코드를 작성할 수 있다.
+
+```swift
+var fridgeIsOpen = false
+let fridgeContent = ["milk", "eggs", "leftovers"]
+
+func fridgeContains(_ food: String) -> Bool {
+    fridgeIsOpen = true
+    defer { // 함수가 끝나는 시점에 처리됨 
+        fridgeIsOpen = false
+    }
+
+    let result = fridgeContent.contains(food)
+    return result
+}
+fridgeContains("banana")
+print(fridgeIsOpen)
+// Prints "false"
+```
+
+
+
+## 제네릭
+
+`<>` 안에 이름을 작성하여 제네릭 함수나 제네릭 타입을 선언할 수 있다.
+
+```swift
+func makeArray<Item>(repeating item: Item, numberOfTimes: Int) -> [Item] {
+    var result: [Item] = []
+    for _ in 0..<numberOfTimes {
+        result.append(item)
+    }
+    return result
+}
+makeArray(repeating: "knock", numberOfTimes: 4) // [String]
+```
+
+
+
+함수 및 메서드 뿐 아니라 클래스, 열거형, 구조체 또한 제네릭 타입을 만들 수 있다.
+
+```swift
+// Reimplement the Swift standard library's optional type
+enum OptionalValue<Wrapped> {
+    case none
+    case some(Wrapped)
+}
+var possibleInteger: OptionalValue<Int> = .none
+possibleInteger = .some(100)
+```
+
+
+
+`where` 키워드를 사용하여 제네릭 타입의 필요조건을 넣을 수 있다. 예를 들어, 타입이 어떤 프로토콜을 구현해야 하는지, 두 타입이 동일한 타입이어야 하는지, 클래스에 특정 수퍼 클래스가 있어야 하는지에 대한 필요조건을 넣을 수 있다.
+
+```swift
+func anyCommonElements<T: Sequence, U: Sequence>(_ lhs: T, _ rhs: U) -> Bool
+    where T.Element: Equatable, T.Element == U.Element
+{
+    for lhsItem in lhs {
+        for rhsItem in rhs {
+            if lhsItem == rhsItem {
+                return true
+            }
+        }
+    }
+    return false
+}
+anyCommonElements([1, 2, 3], [3])
+```
 
 
 
