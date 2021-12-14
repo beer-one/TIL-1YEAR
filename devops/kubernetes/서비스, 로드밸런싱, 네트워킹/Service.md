@@ -140,17 +140,13 @@ kube-proxy가 다른 모드로 시작할 수 있다. kube-proxy의 모드는 설
 
 기본적으로 userspace mode 내 kube-proxy는 Round-robin 알고리즘을 사용하여 백엔드를 선택한다.
 
-![image-20211011203511490](file:///Users/yunseowon/Library/Application%20Support/typora-user-images/image-20211011203511490.png?lastModify=1633961759)
-
-
+![유저스페이스 프록시에 대한 서비스 개요 다이어그램](https://d33wubrfki0l68.cloudfront.net/e351b830334b8622a700a8da6568cb081c464a9b/13020/images/docs/services-userspace-overview.svg)
 
 쿠버네티스 서비스에 대한 iptable 리스트를 보는 방법은 아래 명령어를 사용하면 된다.
 
 ```shell
 $ sudo iptables -t nat -L KUBE-SERVICES -n  | column -t
 ```
-
-
 
 
 
@@ -166,7 +162,9 @@ kube-proxy가 iptable mode에서 구동 중이고 선택된 첫 번째 파드가
 
 백엔드 파드가 잘 실행 중인지 확인하기 위해 파드 `readiness probe`를 사용할 수 있다. 그래서 iptable mode에서 `kube-proxy`는 정상적으로 테스트된 백엔드만 볼 수 있다. 이렇게 하는 것은 트래픽이 kube-proxy를 통해 실패한 것으로 알려진 파드로 전송되는 것을 막을 수 있다.
 
-![image-20211011211510259](file:///Users/yunseowon/Library/Application%20Support/typora-user-images/image-20211011211510259.png?lastModify=1633961759)
+![iptables 프록시에 대한 서비스 개요 다이어그램](https://d33wubrfki0l68.cloudfront.net/27b2978647a8d7bdc2a96b213f0c0d3242ef9ce0/e8c9b/images/docs/services-iptables-overview.svg)
+
+
 
 ### IPVS proxy mode
 
