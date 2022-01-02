@@ -306,14 +306,24 @@ kube-node1   Ready,SchedulingDisabled   <none>                 42m   v1.22.2
 노드를 지우기 전에 **대상 노드**에서 kubeadm을 리셋한다.
 
 ```shell
-$ kubeadm reset
+$ sudo kubeadm reset
 ```
 
 reset 프로세스는 iptable rule 또는 IPVS 테이블을 리셋하거나 정리하지 않는다. iptable을 정리하고 싶다면 다음 명령어를 입력하자.
 
 ```shell
-$ iptables -F && iptables -t nat -F && iptables -t mangle -F && iptables -X
+$ sudo iptables -F && sudo iptables -t nat -F && sudo iptables -t mangle -F && sudo iptables -X
 ```
+
+CNI 구성도 깔끔하게 삭제하자. 이거때매 재설치할 때 꼬일 수도 있다.
+
+```shell
+$ sudo rm -rf /etc/cni/net.d
+```
+
+
+
+
 
 IPVS 테이블을 리셋하고 싶다면 아래 명령어를 입력하자.
 
@@ -334,7 +344,7 @@ $ kubectl delete node <node name>
 컨트롤 플레인 노드를 제거하는 방법은 일단 모든 노드를 제거 한 후 컨트롤 플레인에서 kubeadm을 리셋하면 된다.
 
 ```shell
-$ kubeadm reset
+$ sudo kubeadm reset
 $ rm -rf ~/.kube
 ```
 
@@ -388,3 +398,6 @@ $ sudo kubeadm reset
 $ sudo kubeadm init
 ```
 
+
+
+$HOME/.kube/config

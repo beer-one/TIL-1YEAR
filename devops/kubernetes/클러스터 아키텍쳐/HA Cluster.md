@@ -151,7 +151,7 @@ $ sudo systemctl enable haproxy
 
 ```shell
 $ nc -v ${LOAD_BALANCER_IP} ${PORT}
-Connection to ${LOAD_BALANCER_IP} ${PORT} port [tcp/*] succeeded!
+Connection kubec
 ```
 
 * connection refused 에러가 만약 발생한다면 apiserver가 아직 실행되지 않아서 발생하는 것이다.
@@ -168,7 +168,7 @@ Connection to ${LOAD_BALANCER_IP} ${PORT} port [tcp/*] succeeded!
 먼저 컨트롤 플레인은 설치한다.
 
 ```shell
-$ sudo kubeadm init --control-plane-endpoint ${LOAD_BALANCER_DNS}:${LOAD_BALANCER_PORT} --upload-certs
+$ sudo kubeadm init --control-plane-endpoint ${LOAD_BALANCER_DNS}:${LOAD_BALANCER_PORT} --pod-network-cidr=10.244.0.0/16 --apiserver-advertise-address=${address} --upload-certs
 ```
 
 * `--control-plane-endpoint` : 로드밸런서의 DNS(IP주소):Port 로 설정해야 한다.
